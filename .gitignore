@@ -1,0 +1,14 @@
+# General project .gitignore
+node_modules/
+*.log
+.env
+.env.local
+.env.*.local
+.DS_Store
+Thumbs.db
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
