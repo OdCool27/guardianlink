@@ -191,6 +191,8 @@ body.sos-flash {
 /* Home Screen */
 .home-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
 .home-header h1 { font-size: 1.75rem; text-align: left; }
+.home-logo { height: 60px; width: auto; }
+.home-logo svg { height: 100%; width: auto; max-width: 200px; }
 .home-header .toggle-group { margin: 0; gap: 0.5rem; }
 .home-header .toggle-group label { margin: 0; font-size: 0.8rem; }
 .sos-panel { text-align: center; margin-bottom: 2rem; }
