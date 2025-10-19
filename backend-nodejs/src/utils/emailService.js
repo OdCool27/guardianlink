@@ -1,17 +1,40 @@
 const { createTransport } = require('nodemailer');
 
-const transporter = createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+// Initialize email transporter only if valid credentials are provided
+let transporter = null;
+const smtpUser = process.env.SMTP_USER;
+const smtpPass = process.env.SMTP_PASS;
+const smtpHost = process.env.SMTP_HOST;
+
+if (smtpUser && smtpPass && smtpHost && 
+    smtpUser !== 'your_email@gmail.com' && 
+    smtpPass !== 'your_app_password_here') {
+  try {
+    transporter = createTransport({
+      host: smtpHost,
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: smtpUser,
+        pass: smtpPass
+      }
+    });
+    console.log('✅ Email service initialized');
+  } catch (error) {
+    console.warn('⚠️  Email service initialization failed:', error.message);
   }
-});
+} else {
+  console.warn('⚠️  Email credentials not configured - Email features disabled');
+}
 
 const sendSosAlert = async (toEmail, userName, locationLink) => {
-  const mailOptions = {
+  if (!transporter) {
+    console.warn('⚠️  Email service not available - SMTP not configured');
+    return { success: false, error: 'Email service not configured' };
+  }
+  
+  try {
+    const mailOptions = {
     from: process.env.SMTP_USER,
     to: toEmail,
     subject: `🚨 EMERGENCY ALERT from ${userName}`,
@@ -47,13 +70,24 @@ const sendSosAlert = async (toEmail, userName, locationLink) => {
       </body>
       </html>
     `
-  };
+    };
 
-  await transporter.sendMail(mailOptions);
+    await transporter.sendMail(mailOptions);
+    return { success: true };
+  } catch (error) {
+    console.error('Email send error:', error.message);
+    return { success: false, error: error.message };
+  }
 };
 
 const sendCompanionModeAlert = async (toEmail, userName, locationLink, durationMinutes) => {
-  const mailOptions = {
+  if (!transporter) {
+    console.warn('⚠️  Email service not available - SMTP not configured');
+    return { success: false, error: 'Email service not configured' };
+  }
+  
+  try {
+    const mailOptions = {
     from: process.env.SMTP_USER,
     to: toEmail,
     subject: `📍 ${userName} is sharing their location with you`,
@@ -89,13 +123,24 @@ const sendCompanionModeAlert = async (toEmail, userName, locationLink, durationM
       </body>
       </html>
     `
-  };
+    };
 
-  await transporter.sendMail(mailOptions);
+    await transporter.sendMail(mailOptions);
+    return { success: true };
+  } catch (error) {
+    console.error('Email send error:', error.message);
+    return { success: false, error: error.message };
+  }
 };
 
 const sendSafeNotification = async (toEmail, userName) => {
-  const mailOptions = {
+  if (!transporter) {
+    console.warn('⚠️  Email service not available - SMTP not configured');
+    return { success: false, error: 'Email service not configured' };
+  }
+  
+  try {
+    const mailOptions = {
     from: process.env.SMTP_USER,
     to: toEmail,
     subject: `✅ ${userName} is now safe`,
@@ -127,9 +172,14 @@ const sendSafeNotification = async (toEmail, userName) => {
       </body>
       </html>
     `
-  };
+    };
 
-  await transporter.sendMail(mailOptions);
+    await transporter.sendMail(mailOptions);
+    return { success: true };
+  } catch (error) {
+    console.error('Email send error:', error.message);
+    return { success: false, error: error.message };
+  }
 };
 
 module.exports = {
