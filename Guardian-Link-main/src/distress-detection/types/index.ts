@@ -92,3 +92,37 @@ export interface DistressDetectionState {
   lastDetection?: DistressEvent;
   errorMessage?: string;
 }
+
+// Monitoring and metrics types
+export interface DetectionMetrics {
+  totalDetections: number;
+  speechDetections: number;
+  audioDetections: number;
+  falsePositives: number;
+  averageConfidence: number;
+  lastDetectionTime?: Date;
+  uptime: number; // milliseconds
+  detectionRate: number; // detections per hour
+}
+
+export interface PerformanceMetrics {
+  cpuUsage: number; // percentage
+  memoryUsage: number; // MB
+  batteryLevel?: number; // percentage
+  processingLatency: number; // milliseconds
+  networkLatency?: number; // milliseconds for API calls
+}
+
+export interface MonitoringConfig {
+  updateInterval: number; // milliseconds
+  metricsRetention: number; // days
+  performanceThresholds: {
+    maxCpuUsage: number;
+    maxMemoryUsage: number;
+    maxLatency: number;
+  };
+  alertThresholds: {
+    errorRate: number;
+    falsePositiveRate: number;
+  };
+}

@@ -1,0 +1,260 @@
+/**
+ * Error Notification System Styles
+ */
+
+.error-notification-system {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.error-notification {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-bottom: 12px;
+  overflow: hidden;
+  pointer-events: auto;
+  transform: translateX(100%);
+  transition: all 0.3s ease-in-out;
+  border-left: 4px solid #ccc;
+}
+
+.error-notification.visible {
+  transform: translateX(0);
+}
+
+.error-notification.hidden {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* Severity-based styling */
+.error-notification.critical {
+  border-left-color: #dc3545;
+  background: #fff5f5;
+}
+
+.error-notification.high {
+  border-left-color: #fd7e14;
+  background: #fff8f0;
+}
+
+.error-notification.medium {
+  border-left-color: #ffc107;
+  background: #fffbf0;
+}
+
+.error-notification.low {
+  border-left-color: #17a2b8;
+  background: #f0f9ff;
+}
+
+.error-header {
+  display: flex;
+  align-items: center;
+  padding: 16px 16px 8px 16px;
+  gap: 12px;
+}
+
+.error-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.error-title {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.error-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.error-close:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.error-content {
+  padding: 0 16px 16px 16px;
+}
+
+.error-message {
+  margin: 0 0 12px 0;
+  color: #555;
+  line-height: 1.4;
+  font-size: 14px;
+}
+
+.error-retry-info {
+  margin: 8px 0;
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+.error-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.error-action {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 80px;
+}
+
+.error-action.primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.error-action.primary:hover {
+  background-color: #0056b3;
+}
+
+.error-action.secondary {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+}
+
+.error-action.secondary:hover {
+  background-color: #e9ecef;
+}
+
+.error-critical-warning {
+  background-color: #dc3545;
+  color: white;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Critical error pulsing animation */
+.error-notification.critical {
+  animation: criticalPulse 2s infinite;
+}
+
+@keyframes criticalPulse {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .error-notification-system {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+
+  .error-notification {
+    margin-bottom: 8px;
+  }
+
+  .error-header {
+    padding: 12px 12px 6px 12px;
+  }
+
+  .error-content {
+    padding: 0 12px 12px 12px;
+  }
+
+  .error-title {
+    font-size: 15px;
+  }
+
+  .error-message {
+    font-size: 13px;
+  }
+
+  .error-actions {
+    flex-direction: column;
+  }
+
+  .error-action {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .error-notification {
+    border: 2px solid #000;
+  }
+
+  .error-notification.critical {
+    border-color: #dc3545;
+  }
+
+  .error-notification.high {
+    border-color: #fd7e14;
+  }
+
+  .error-notification.medium {
+    border-color: #ffc107;
+  }
+
+  .error-notification.low {
+    border-color: #17a2b8;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .error-notification {
+    transition: none;
+  }
+
+  .error-notification.critical {
+    animation: none;
+  }
+}
+
+/* Focus management for accessibility */
+.error-notification:focus-within {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+.error-action:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+.error-close:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}

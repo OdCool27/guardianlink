@@ -25,8 +25,8 @@ import { DistressClassificationService } from './DistressClassificationService';
 import { VerificationService } from './VerificationService';
 import { PermissionsManager } from './PermissionsManager';
 import { DetectionEventHandler, DetectionCorrelation } from './DetectionEventHandler';
+import { errorHandlingService, ErrorType, RecoveryStrategy } from './ErrorHandlingService';
 import { DEFAULT_DISTRESS_SETTINGS } from '../config/defaults';
-import { generateId } from '../utils/storage';
 
 /**
  * Central coordinator for all distress detection activities
@@ -65,6 +65,7 @@ export class DistressDetectionManager implements IDistressDetectionManager {
 
     this.setupServiceCallbacks();
     this.setupEventHandlerCallbacks();
+    this.setupErrorHandling();
   }
 
   /**
@@ -421,29 +422,206 @@ export class DistressDetectionManager implements IDistressDetectionManager {
   }
 
   /**
-   * Handle service errors with recovery strategies
+   * Setup error handling and recovery
+   */
+  private setupErrorHandling(): void {
+    // Register recovery callbacks with error handling service
+    errorHandlingService.onRecovery(async (service: string, strategy: RecoveryStrategy) => {
+      return this.executeServiceRecovery(service, strategy);
+    });
+  }
+
+  /**
+   * Execute service-specific recovery strategies
+   */
+  private async executeServiceRecovery(service: string, strategy: RecoveryStrategy): Promise<boolean> {
+    try {
+      switch (service) {
+        case 'speech':
+          return await this.recoverSpeechService(strategy);
+        case 'audio':
+          return await this.recoverAudioService(strategy);
+        case 'classification':
+          return await this.recoverClassificationService(strategy);
+        case 'verification':
+          return await this.recoverVerificationService(strategy);
+        case 'permissions':
+          return await this.recoverPermissionsService(strategy);
+        default:
+          console.warn(`Unknown service for recovery: ${service}`);
+          return false;
+      }
+    } catch (error) {
+      console.error(`Recovery failed for ${service}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Recover speech recognition service
+   */
+  private async recoverSpeechService(strategy: RecoveryStrategy): Promise<boolean> {
+    switch (strategy) {
+      case RecoveryStrategy.RESTART_SERVICE:
+        try {
+          this.speechService.stopListening();
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          await this.speechService.initialize();
+          this.speechService.startListening();
+          return true;
+        } catch (error) {
+          return false;
+        }
+
+      case RecoveryStrategy.GRACEFUL_DEGRADATION:
+        // Disable speech recognition, continue with audio only
+        this.settings.speechRecognition.enabled = false;
+        this.updateState({ isListening: false });
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Recover audio analysis service
+   */
+  private async recoverAudioService(strategy: RecoveryStrategy): Promise<boolean> {
+    switch (strategy) {
+      case RecoveryStrategy.RESTART_SERVICE:
+        try {
+          this.audioService.stopAnalysis();
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          await this.audioService.initialize();
+          this.audioService.startAnalysis();
+          return true;
+        } catch (error) {
+          return false;
+        }
+
+      case RecoveryStrategy.GRACEFUL_DEGRADATION:
+        // Disable audio analysis, continue with speech only
+        this.settings.audioAnalysis.enabled = false;
+        this.updateState({ isAnalyzing: false });
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Recover classification service
+   */
+  private async recoverClassificationService(strategy: RecoveryStrategy): Promise<boolean> {
+    switch (strategy) {
+      case RecoveryStrategy.FALLBACK:
+        // Switch to local processing if API fails
+        this.settings.nlpProcessing.mode = 'local';
+        this.classificationService.setProcessingMode('local');
+        return true;
+
+      case RecoveryStrategy.RETRY:
+        // Reset API client
+        try {
+          this.classificationService.setProcessingMode(this.settings.nlpProcessing.mode);
+          return true;
+        } catch (error) {
+          return false;
+        }
+
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Recover verification service
+   */
+  private async recoverVerificationService(strategy: RecoveryStrategy): Promise<boolean> {
+    switch (strategy) {
+      case RecoveryStrategy.RESTART_SERVICE:
+        this.verificationService.stopVerification();
+        return true;
+
+      case RecoveryStrategy.EMERGENCY_FALLBACK:
+        // Show manual SOS if verification fails
+        this.showManualSOSFallback();
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Recover permissions service
+   */
+  private async recoverPermissionsService(strategy: RecoveryStrategy): Promise<boolean> {
+    switch (strategy) {
+      case RecoveryStrategy.MANUAL_INTERVENTION:
+        // Request permissions again
+        try {
+          const hasPermissions = await this.permissionsManager.requestMicrophonePermission();
+          return hasPermissions;
+        } catch (error) {
+          return false;
+        }
+
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Handle service errors with comprehensive error reporting
    */
   private handleServiceError(service: string, error: Error): void {
-    console.error(`${service} service error:`, error);
-
-    // Implement service-specific recovery strategies
-    if (service === 'speech' && this.state.status === 'active') {
-      // Try to restart speech recognition
-      setTimeout(() => {
-        if (this.settings.speechRecognition.enabled) {
-          this.speechService.startListening();
-        }
-      }, 2000);
+    // Determine error type based on error message and service
+    let errorType: ErrorType;
+    
+    if (error.message.includes('permission')) {
+      errorType = ErrorType.PERMISSION_DENIED;
+    } else if (error.message.includes('not supported')) {
+      errorType = ErrorType.BROWSER_UNSUPPORTED;
+    } else if (error.message.includes('microphone')) {
+      errorType = ErrorType.MICROPHONE_UNAVAILABLE;
+    } else if (service === 'speech') {
+      errorType = ErrorType.SPEECH_RECOGNITION_FAILED;
+    } else if (service === 'audio') {
+      errorType = ErrorType.AUDIO_ANALYSIS_FAILED;
+    } else if (service === 'classification') {
+      errorType = ErrorType.API_ERROR;
+    } else {
+      errorType = ErrorType.SERVICE_CRASHED;
     }
 
-    if (service === 'audio' && this.state.status === 'active') {
-      // Try to restart audio analysis
-      setTimeout(() => {
-        if (this.settings.audioAnalysis.enabled) {
-          this.audioService.startAnalysis();
-        }
-      }, 2000);
-    }
+    // Report error to error handling service
+    errorHandlingService.reportError(
+      errorType,
+      service,
+      error.message,
+      error,
+      {
+        settings: this.settings,
+        state: this.state,
+        timestamp: new Date().toISOString()
+      }
+    );
+  }
+
+  /**
+   * Show manual SOS fallback for critical failures
+   */
+  private showManualSOSFallback(): void {
+    // Dispatch event for UI to show manual SOS button
+    window.dispatchEvent(new CustomEvent('show-manual-sos-fallback', {
+      detail: {
+        reason: 'Distress detection system failure',
+        timestamp: new Date()
+      }
+    }));
   }
 
 

@@ -1,0 +1,359 @@
+/**
+ * Monitoring Status Display Styles
+ * Requirements: 7.4, 7.5
+ */
+
+.monitoring-status-display {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+  transition: all 0.3s ease;
+}
+
+.monitoring-status-display:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Status Indicator */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.status-indicator.expanded {
+  border-bottom: 1px solid var(--border-secondary);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.status-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.status-icon {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.status-text {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+/* Activity Pulse Animation */
+.activity-pulse {
+  position: absolute;
+  right: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: var(--brand-green);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translateY(-50%) scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+/* Expand Toggle */
+.expand-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.expand-toggle:hover {
+  background: var(--surface-secondary);
+}
+
+.expand-toggle svg {
+  transition: transform 0.3s ease;
+}
+
+.expand-toggle svg.rotated {
+  transform: rotate(180deg);
+}
+
+/* Connection Status */
+.connection-status {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: var(--surface-secondary);
+  border-radius: 6px;
+  border-left: 3px solid var(--brand-green);
+}
+
+.connection-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Error Message */
+.error-message {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--danger-surface);
+  border: 1px solid var(--danger-primary);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.error-icon {
+  font-size: 16px;
+}
+
+.error-text {
+  font-size: 12px;
+  color: var(--danger-primary);
+  font-weight: 500;
+}
+
+/* Detailed Status */
+.detailed-status {
+  margin-top: 12px;
+}
+
+.detailed-status h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Metrics Section */
+.metrics-section {
+  margin-bottom: 16px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: var(--surface-secondary);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.metric-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.metric-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+
+/* Activity Section */
+.activity-section {
+  margin-bottom: 16px;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.activity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: var(--surface-secondary);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.activity-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.activity-type {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.activity-confidence {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.activity-time {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+/* Last Detection */
+.last-detection {
+  padding: 12px;
+  background: var(--surface-secondary);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent-primary);
+}
+
+.detection-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detection-method {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.detection-confidence {
+  font-size: 12px;
+  color: var(--accent-primary);
+  font-weight: 500;
+}
+
+.detection-time {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.detection-transcript {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: var(--surface-primary);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-style: italic;
+  border-left: 2px solid var(--border-secondary);
+}
+
+/* Status-specific styles */
+.status-indicator.active .status-text {
+  color: var(--brand-green);
+}
+
+.status-indicator.initializing .status-text {
+  color: var(--warning-primary);
+}
+
+.status-indicator.error .status-text {
+  color: var(--danger-primary);
+}
+
+.status-indicator.inactive .status-text {
+  color: var(--text-secondary);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .monitoring-status-display {
+    padding: 10px;
+    margin: 6px 0;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .metric-item {
+    padding: 6px;
+  }
+
+  .detailed-status h4 {
+    font-size: 12px;
+  }
+
+  .activity-item {
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  .last-detection {
+    padding: 10px;
+  }
+}
+
+/* Compact variant */
+.monitoring-status-display.compact {
+  padding: 8px;
+  margin: 4px 0;
+}
+
+.monitoring-status-display.compact .status-text {
+  font-size: 12px;
+}
+
+.monitoring-status-display.compact .connection-text {
+  font-size: 11px;
+}
+
+/* Persistent indicator variant */
+.monitoring-status-display.persistent {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  min-width: 200px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--surface-primary);
+  backdrop-filter: blur(10px);
+}
+
+.monitoring-status-display.persistent:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 768px) {
+  .monitoring-status-display.persistent {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    min-width: auto;
+  }
+}

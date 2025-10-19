@@ -5,18 +5,27 @@
 
 import { AudioAnalysisEngine, AudioMetrics } from '../interfaces/AudioAnalysisEngine';
 import { AUDIO_CONFIG } from '../config/defaults';
+import { AudioWorkerManager, WorkerPerformanceMetrics } from './AudioWorkerManager';
+import { AudioAnalysisResult } from '../workers/audio-analysis.worker';
 import { 
   calculateRMS, 
-  amplitudeToDecibels, 
-  findFrequencyPeaks, 
-  calculateSpectralCentroid,
-  assessAudioQuality,
-  detectSpeechCharacteristics 
+  amplitudeToDecibels
 } from '../utils/audio-processing';
+import { 
+  CircularBuffer, 
+  MemoryUsageMonitor, 
+  AudioBufferPool 
+} from '../utils/memory-management';
+import { 
+  BatteryAwareManager, 
+  ProcessingFrequencyAdjuster,
+  ProcessingSchedule 
+} from '../utils/battery-management';
 
 /**
- * Audio analysis service implementation using Web Audio API
- * Provides real-time audio analysis for distress detection
+ * Audio analysis service implementation using Web Audio API with Web Worker optimization
+ * Provides real-time audio analysis for distress detection with performance optimization,
+ * memory management, and battery-aware processing
  */
 export class AudioAnalysisService implements AudioAnalysisEngine {
   private audioContext: AudioContext | null = null;
@@ -33,8 +42,11 @@ export class AudioAnalysisService implements AudioAnalysisEngine {
   private frequencyData: Uint8Array | null = null;
   private timeData: Uint8Array | null = null;
   
+  // Web Worker for intensive processing
+  private workerManager: AudioWorkerManager | null = null;
+  private useWebWorker = true;
+  
   // Analysis state
-  private baselineVolume = 0;
   private currentMetrics: AudioMetrics = {
     currentVolume: 0,
     peakVolume: 0,
@@ -54,16 +66,49 @@ export class AudioAnalysisService implements AudioAnalysisEngine {
   // Callbacks
   private distressCallback: ((confidence: number, metrics: AudioMetrics) => void) | null = null;
   private errorCallback: ((error: Error) => void) | null = null;
+  private performanceCallback: ((metrics: WorkerPerformanceMetrics) => void) | null = null;
   
-  // Volume tracking for baseline calculation
-  private volumeHistory: number[] = [];
-  private readonly VOLUME_HISTORY_SIZE = 50;
+  // Performance optimization
+  private processingQueue: Array<{ frequencyData: Uint8Array; timeData: Uint8Array; timestamp: number }> = [];
+  private isProcessing = false;
+  private maxQueueSize = 5;
+  private frameSkipCounter = 0;
+  private frameSkipInterval = 2; // Process every 3rd frame for performance
   
-  // Advanced detection state
-  private previousVolume = 0;
-  private suddenChangeHistory: number[] = [];
-  private readonly CHANGE_HISTORY_SIZE = 10;
-  private lastSignificantChange = 0;
+  // Memory management
+  private volumeBuffer: CircularBuffer<number>;
+  private memoryMonitor: MemoryUsageMonitor;
+  private audioBufferPool: AudioBufferPool;
+  
+  // Battery management
+  private batteryManager: BatteryAwareManager;
+  private frequencyAdjuster: ProcessingFrequencyAdjuster;
+  private lastProcessingTime = 0;
+  
+  // Cleanup tracking
+  private cleanupInterval: number | null = null;
+  private readonly CLEANUP_INTERVAL_MS = 60000; // Cleanup every minute
+  
+  constructor() {
+    // Initialize memory management
+    this.volumeBuffer = new CircularBuffer<number>(50);
+    this.memoryMonitor = new MemoryUsageMonitor();
+    this.audioBufferPool = new AudioBufferPool(2048); // Default FFT size
+    
+    // Initialize battery management
+    this.batteryManager = new BatteryAwareManager();
+    this.frequencyAdjuster = new ProcessingFrequencyAdjuster(30); // 30fps base
+    
+    // Set up battery-aware processing
+    this.batteryManager.onScheduleChanged((schedule: ProcessingSchedule) => {
+      this.applyProcessingSchedule(schedule);
+    });
+    
+    // Set up memory monitoring
+    this.memoryMonitor.onMemoryWarningCallback((memoryInfo) => {
+      this.handleMemoryWarning(memoryInfo);
+    });
+  }
   
   /**
    * Initialize the audio analysis engine
@@ -73,6 +118,35 @@ export class AudioAnalysisService implements AudioAnalysisEngine {
       // Check Web Audio API support
       if (!window.AudioContext && !(window as any).webkitAudioContext) {
         throw new Error('Web Audio API is not supported in this browser');
+      }
+      
+      // Initialize Web Worker for intensive processing
+      if (this.useWebWorker) {
+        try {
+          this.workerManager = new AudioWorkerManager();
+          await this.workerManager.initialize();
+          
+          // Set up worker callbacks
+          this.workerManager.onAnalysisResultReceived((result: AudioAnalysisResult) => {
+            this.handleWorkerAnalysisResult(result);
+          });
+          
+          this.workerManager.onErrorOccurred((error: Error) => {
+            console.warn('Worker error, falling back to main thread:', error);
+            this.useWebWorker = false;
+          });
+          
+          this.workerManager.onPerformanceMetricsUpdated((metrics: WorkerPerformanceMetrics) => {
+            if (this.performanceCallback) {
+              this.performanceCallback(metrics);
+            }
+          });
+          
+          console.log('Web Worker initialized for audio processing');
+        } catch (error) {
+          console.warn('Failed to initialize Web Worker, using main thread:', error);
+          this.useWebWorker = false;
+        }
       }
       
       // Create audio context
@@ -90,6 +164,13 @@ export class AudioAnalysisService implements AudioAnalysisEngine {
       
       // Create audio processing nodes
       this.setupAudioNodes();
+      
+      // Initialize battery and memory management
+      await this.batteryManager.initialize();
+      this.memoryMonitor.startMonitoring();
+      
+      // Start periodic cleanup
+      this.startPeriodicCleanup();
       
       this.isInitialized = true;
     } catch (error) {
@@ -125,10 +206,10 @@ export class AudioAnalysisService implements AudioAnalysisEngine {
     this.sourceNode.connect(this.gainNode);
     this.gainNode.connect(this.analyzerNode);
     
-    // Initialize data arrays
+    // Initialize data arrays with proper buffer type
     const bufferLength = this.analyzerNode.frequencyBinCount;
-    this.frequencyData = new Uint8Array(bufferLength);
-    this.timeData = new Uint8Array(bufferLength);
+    this.frequencyData = new Uint8Array(new ArrayBuffer(bufferLength));
+    this.timeData = new Uint8Array(new ArrayBuffer(bufferLength));
   }
   
   /**
@@ -191,6 +272,13 @@ export class AudioAnalysisService implements AudioAnalysisEngine {
     sensitivity?: number;
   }): void {
     this.settings = { ...this.settings, ...settings };
+    
+    // Update worker settings if using Web Worker
+    if (this.useWebWorker && this.workerManager) {
+      this.workerManager.updateSettings(this.settings).catch(error => {
+        console.warn('Failed to update worker settings:', error);
+      });
+    }
   }
   
   /**
@@ -201,7 +289,7 @@ export class AudioAnalysisService implements AudioAnalysisEngine {
   }
   
   /**
-   * Main analysis loop using requestAnimationFrame
+   * Main analysis loop using requestAnimationFrame with performance optimization
    */
   private startAnalysisLoop(): void {
     if (!this.analyzing || !this.analyzerNode || !this.frequencyData || !this.timeData) {
@@ -209,18 +297,21 @@ export class AudioAnalysisService implements AudioAnalysisEngine {
     }
     
     // Get current audio data
-    this.analyzerNode.getByteFrequencyData(this.frequencyData);
-    this.analyzerNode.getByteTimeDomainData(this.timeData);
+    if (this.frequencyData && this.timeData) {
+      this.analyzerNode.getByteFrequencyData(this.frequencyData as any);
+      this.analyzerNode.getByteTimeDomainData(this.timeData as any);
+    }
     
-    // Calculate audio metrics
-    this.updateAudioMetrics();
+    // Update basic metrics (lightweight operation)
+    this.updateBasicMetrics();
     
-    // Assess audio quality before analysis
-    const audioQuality = assessAudioQuality(this.timeData, this.frequencyData);
-    
-    // Only perform analysis if audio quality is sufficient
-    if (audioQuality.snr > 10 && !audioQuality.isClipped) {
-      this.performDistressAnalysis();
+    // Performance optimization: Skip frames for intensive processing
+    this.frameSkipCounter++;
+    if (this.frameSkipCounter >= this.frameSkipInterval) {
+      this.frameSkipCounter = 0;
+      
+      // Queue data for processing (Web Worker or main thread)
+      this.queueAudioDataForProcessing();
     }
     
     // Schedule next analysis frame
@@ -228,201 +319,333 @@ export class AudioAnalysisService implements AudioAnalysisEngine {
   }
   
   /**
-   * Update current audio metrics from analyzer data
+   * Update basic audio metrics (lightweight operation for main thread)
    */
-  private updateAudioMetrics(): void {
-    if (!this.frequencyData || !this.timeData) return;
+  private updateBasicMetrics(): void {
+    if (!this.timeData) return;
     
-    // Calculate RMS volume using utility function
+    // Calculate RMS volume using utility function (lightweight)
     const rms = calculateRMS(this.timeData);
     const volume = amplitudeToDecibels(rms);
     
-    // Update volume history for baseline calculation
-    this.volumeHistory.push(volume);
-    if (this.volumeHistory.length > this.VOLUME_HISTORY_SIZE) {
-      this.volumeHistory.shift();
-    }
+    // Store volume in circular buffer for efficient memory usage
+    this.volumeBuffer.push(volume);
     
-    // Calculate baseline as average of recent volumes
-    this.baselineVolume = this.volumeHistory.reduce((a, b) => a + b, 0) / this.volumeHistory.length;
-    
-    // Update metrics
+    // Update basic metrics
     this.currentMetrics = {
       currentVolume: volume,
       peakVolume: Math.max(this.currentMetrics.peakVolume, volume),
-      averageVolume: this.baselineVolume,
-      frequencyData: new Float32Array(this.frequencyData),
+      averageVolume: this.volumeBuffer.average(),
+      frequencyData: this.frequencyData ? new Float32Array(this.frequencyData) : new Float32Array(0),
       timestamp: new Date()
     };
   }
   
   /**
-   * Analyze audio for distress patterns
+   * Queue audio data for intensive processing with memory optimization
    */
-  private performDistressAnalysis(): void {
-    let distressConfidence = 0;
-    const detectionResults: string[] = [];
+  private queueAudioDataForProcessing(): void {
+    if (!this.frequencyData || !this.timeData || !this.audioContext) return;
     
-    // Volume spike detection with configurable thresholds
-    if (this.settings.spikeDetection) {
-      const spikeConfidence = this.detectVolumeSpikeWithThreshold();
-      if (spikeConfidence > 0) {
-        distressConfidence += spikeConfidence * 0.3;
-        detectionResults.push(`Volume spike: ${(spikeConfidence * 100).toFixed(1)}%`);
+    // Use buffer pool for memory efficiency
+    const frequencyDataCopy = this.audioBufferPool.getFrequencyBuffer();
+    const timeDataCopy = this.audioBufferPool.getTimeBuffer();
+    
+    // Copy data to pooled buffers
+    for (let i = 0; i < this.frequencyData.length; i++) {
+      frequencyDataCopy[i] = this.frequencyData[i];
+    }
+    for (let i = 0; i < this.timeData.length; i++) {
+      timeDataCopy[i] = this.timeData[i];
+    }
+    
+    // Add to processing queue
+    this.processingQueue.push({
+      frequencyData: frequencyDataCopy,
+      timeData: timeDataCopy,
+      timestamp: Date.now()
+    });
+    
+    // Limit queue size based on current battery/memory constraints
+    if (this.processingQueue.length > this.maxQueueSize) {
+      const oldItem = this.processingQueue.shift();
+      if (oldItem) {
+        // Return buffers to pool
+        this.audioBufferPool.returnFrequencyBuffer(oldItem.frequencyData);
+        this.audioBufferPool.returnTimeBuffer(oldItem.timeData);
       }
     }
     
-    // Frequency analysis for screaming patterns
-    if (this.settings.frequencyAnalysis && this.frequencyData) {
-      const screamingConfidence = this.analyzeScreamingPattern();
-      if (screamingConfidence > 0) {
-        distressConfidence += screamingConfidence * 0.4;
-        detectionResults.push(`Screaming pattern: ${(screamingConfidence * 100).toFixed(1)}%`);
+    // Process queue if not already processing
+    if (!this.isProcessing) {
+      this.processAudioQueue();
+    }
+  }
+  
+  /**
+   * Process queued audio data with performance monitoring
+   */
+  private async processAudioQueue(): Promise<void> {
+    if (this.isProcessing || this.processingQueue.length === 0 || !this.audioContext) {
+      return;
+    }
+    
+    this.isProcessing = true;
+    const startTime = performance.now();
+    
+    try {
+      const audioData = this.processingQueue.shift();
+      if (!audioData) return;
+      
+      if (this.useWebWorker && this.workerManager) {
+        // Use Web Worker for intensive processing
+        await this.workerManager.analyzeAudio({
+          frequencyData: audioData.frequencyData,
+          timeData: audioData.timeData,
+          sampleRate: this.audioContext.sampleRate,
+          timestamp: audioData.timestamp
+        });
+      } else {
+        // Fallback to main thread processing (simplified)
+        this.performMainThreadAnalysis(audioData);
+      }
+      
+      // Return buffers to pool for reuse
+      this.audioBufferPool.returnFrequencyBuffer(audioData.frequencyData);
+      this.audioBufferPool.returnTimeBuffer(audioData.timeData);
+      
+    } catch (error) {
+      console.warn('Audio processing error:', error);
+    } finally {
+      // Update performance metrics
+      const processingTime = performance.now() - startTime;
+      this.lastProcessingTime = processingTime;
+      
+      // Adjust processing frequency based on performance
+      const newFrequency = this.frequencyAdjuster.adjustFrequency(processingTime);
+      this.frameSkipInterval = Math.max(1, Math.floor(60 / newFrequency) - 1);
+      
+      this.isProcessing = false;
+      
+      // Process next item in queue if available
+      if (this.processingQueue.length > 0) {
+        // Use setTimeout to prevent blocking
+        setTimeout(() => this.processAudioQueue(), 0);
       }
     }
-    
-    // Sudden audio change detection
-    const suddenChangeConfidence = this.detectSuddenAudioChanges();
-    if (suddenChangeConfidence > 0) {
-      distressConfidence += suddenChangeConfidence * 0.3;
-      detectionResults.push(`Sudden change: ${(suddenChangeConfidence * 100).toFixed(1)}%`);
-    }
-    
-    // Apply sensitivity adjustment
-    distressConfidence *= (this.settings.sensitivity / 100);
-    
-    // Trigger callback if confidence threshold is met
-    if (distressConfidence > 0.3 && this.distressCallback) {
-      console.log(`Distress detected: ${(distressConfidence * 100).toFixed(1)}% - ${detectionResults.join(', ')}`);
-      this.distressCallback(distressConfidence, this.getCurrentMetrics());
-    }
-    
-    // Update previous volume for change detection
-    this.previousVolume = this.currentMetrics.currentVolume;
   }
   
   /**
-   * Analyze frequency data for screaming patterns
+   * Handle analysis result from Web Worker
    */
-  private analyzeScreamingPattern(): number {
-    if (!this.frequencyData || !this.audioContext) return 0;
+  private handleWorkerAnalysisResult(result: AudioAnalysisResult): void {
+    // Update metrics with worker results
+    this.currentMetrics.averageVolume = result.metrics.currentVolume; // Use worker's baseline calculation
+    this.currentMetrics.peakVolume = Math.max(this.currentMetrics.peakVolume, result.metrics.peakVolume);
     
-    const sampleRate = this.audioContext.sampleRate;
-    
-    // Find frequency peaks to identify dominant frequencies
-    const peaks = findFrequencyPeaks(this.frequencyData, sampleRate, 80);
-    
-    // Calculate spectral centroid (brightness)
-    const spectralCentroid = calculateSpectralCentroid(this.frequencyData, sampleRate);
-    
-    // Check if audio has speech characteristics (to distinguish from screaming)
-    const speechAnalysis = detectSpeechCharacteristics(this.frequencyData, sampleRate);
-    
-    // Screaming typically has:
-    // 1. High spectral centroid (bright sound)
-    // 2. Energy concentrated in 1-4 kHz range
-    // 3. Less speech-like characteristics
-    // 4. High-frequency peaks
-    
-    let screamConfidence = 0;
-    
-    // High spectral centroid indicates bright, harsh sounds
-    if (spectralCentroid > 2000) {
-      screamConfidence += Math.min((spectralCentroid - 2000) / 3000, 0.4);
+    // Trigger distress callback if confidence threshold is met
+    if (result.distressAnalysis.overallConfidence > 0.3 && this.distressCallback) {
+      console.log(`Distress detected (Worker): ${(result.distressAnalysis.overallConfidence * 100).toFixed(1)}% - ${result.distressAnalysis.detectionReasons.join(', ')}`);
+      this.distressCallback(result.distressAnalysis.overallConfidence, this.getCurrentMetrics());
     }
-    
-    // Check for peaks in scream frequency range (1-4 kHz)
-    const screamPeaks = peaks.filter(peak => peak.frequency >= 1000 && peak.frequency <= 4000);
-    if (screamPeaks.length > 0) {
-      const maxScreamPeak = Math.max(...screamPeaks.map(p => p.magnitude));
-      screamConfidence += Math.min(maxScreamPeak / 200, 0.3);
-    }
-    
-    // Inverse correlation with speech characteristics
-    if (!speechAnalysis.isSpeechLike) {
-      screamConfidence += 0.2;
-    } else {
-      screamConfidence *= (1 - speechAnalysis.confidence * 0.5);
-    }
-    
-    // Check for very high frequency content (4-8 kHz)
-    const highFreqPeaks = peaks.filter(peak => peak.frequency >= 4000 && peak.frequency <= 8000);
-    if (highFreqPeaks.length > 0) {
-      screamConfidence += 0.1;
-    }
-    
-    return Math.min(screamConfidence, 1.0);
   }
   
   /**
-   * Detect volume spikes with configurable thresholds
+   * Simplified main thread analysis (fallback)
    */
-  private detectVolumeSpikeWithThreshold(): number {
-    const currentVolume = this.currentMetrics.currentVolume;
-    const baseline = this.baselineVolume;
+  private performMainThreadAnalysis(audioData: { frequencyData: Uint8Array; timeData: Uint8Array; timestamp: number }): void {
+    // Simplified analysis for main thread fallback
+    const rms = calculateRMS(audioData.timeData);
+    const volume = amplitudeToDecibels(rms);
     
-    // Calculate volume increase from baseline
-    const volumeIncrease = currentVolume - baseline;
-    
-    // Apply configurable threshold
-    const threshold = this.settings.volumeThreshold;
-    
-    if (volumeIncrease < threshold) return 0;
-    
-    // Calculate confidence based on how much the threshold is exceeded
-    const maxExpectedIncrease = threshold * 2; // Double threshold = 100% confidence
-    const confidence = Math.min(volumeIncrease / maxExpectedIncrease, 1.0);
-    
-    // Additional check for very sudden spikes (indicates impact or sudden loud noise)
-    const suddennessMultiplier = this.calculateSuddenness(currentVolume);
-    
-    return confidence * suddennessMultiplier;
+    // Basic volume spike detection
+    const volumeIncrease = volume - this.currentMetrics.averageVolume;
+    if (volumeIncrease > this.settings.volumeThreshold && this.distressCallback) {
+      const confidence = Math.min(volumeIncrease / (this.settings.volumeThreshold * 2), 1.0);
+      console.log(`Distress detected (Main Thread): ${(confidence * 100).toFixed(1)}% - Volume spike`);
+      this.distressCallback(confidence, this.getCurrentMetrics());
+    }
   }
   
   /**
-   * Detect sudden audio changes that might indicate distress
+   * Set performance metrics callback
    */
-  private detectSuddenAudioChanges(): number {
-    const currentVolume = this.currentMetrics.currentVolume;
-    const volumeChange = Math.abs(currentVolume - this.previousVolume);
+  onPerformanceMetrics(callback: (metrics: WorkerPerformanceMetrics) => void): void {
+    this.performanceCallback = callback;
+  }
+  
+  /**
+   * Get Web Worker performance metrics
+   */
+  getWorkerPerformanceMetrics(): WorkerPerformanceMetrics | null {
+    return this.workerManager ? this.workerManager.getPerformanceMetrics() : null;
+  }
+  
+  /**
+   * Check if using Web Worker for processing
+   */
+  isUsingWebWorker(): boolean {
+    return this.useWebWorker && this.workerManager !== null;
+  }
+  
+  /**
+   * Force restart of Web Worker (for error recovery)
+   */
+  async restartWorker(): Promise<void> {
+    if (this.workerManager) {
+      await this.workerManager.restartWorker();
+    }
+  }
+  
+  /**
+   * Apply processing schedule from battery manager
+   */
+  private applyProcessingSchedule(schedule: ProcessingSchedule): void {
+    this.frameSkipInterval = schedule.frameSkipInterval;
+    this.maxQueueSize = schedule.maxQueueSize;
     
-    // Track sudden changes in volume
-    this.suddenChangeHistory.push(volumeChange);
-    if (this.suddenChangeHistory.length > this.CHANGE_HISTORY_SIZE) {
-      this.suddenChangeHistory.shift();
+    // Adjust Web Worker usage based on battery
+    if (!schedule.workerEnabled && this.useWebWorker) {
+      console.log('Disabling Web Worker due to low battery');
+      this.useWebWorker = false;
+    } else if (schedule.workerEnabled && !this.useWebWorker && this.workerManager) {
+      console.log('Re-enabling Web Worker');
+      this.useWebWorker = true;
     }
     
-    // Calculate average change rate
-    const avgChange = this.suddenChangeHistory.reduce((a, b) => a + b, 0) / this.suddenChangeHistory.length;
-    
-    // Detect if current change is significantly above average
-    const changeThreshold = Math.max(avgChange * 2, 5); // At least 5dB change
-    
-    if (volumeChange < changeThreshold) return 0;
-    
-    // Check for pattern of multiple sudden changes (struggle, impact sounds)
-    const recentSuddenChanges = this.suddenChangeHistory.filter(change => change > changeThreshold).length;
-    const patternMultiplier = Math.min(recentSuddenChanges / 3, 1.0); // More changes = higher confidence
-    
-    // Calculate confidence
-    const maxExpectedChange = changeThreshold * 3;
-    const baseConfidence = Math.min(volumeChange / maxExpectedChange, 1.0);
-    
-    return baseConfidence * patternMultiplier;
+    // Update worker settings if available
+    if (this.workerManager && this.useWebWorker) {
+      const workerSettings = {
+        ...this.settings,
+        sensitivity: schedule.analysisDepth === 'minimal' ? 50 : 
+                    schedule.analysisDepth === 'standard' ? 70 : 90
+      };
+      
+      this.workerManager.updateSettings(workerSettings).catch(error => {
+        console.warn('Failed to update worker settings for battery optimization:', error);
+      });
+    }
   }
   
   /**
-   * Calculate suddenness factor for volume changes
+   * Handle memory warning by reducing memory usage
    */
-  private calculateSuddenness(currentVolume: number): number {
-    const volumeChange = Math.abs(currentVolume - this.previousVolume);
+  private handleMemoryWarning(memoryInfo: any): void {
+    console.warn('Memory usage high, optimizing...', memoryInfo);
     
-    // Very sudden changes (>15dB in one frame) get higher weight
-    if (volumeChange > 15) return 1.2;
-    if (volumeChange > 10) return 1.1;
-    if (volumeChange > 5) return 1.0;
+    // Clear processing queue to free memory
+    this.processingQueue.forEach(item => {
+      this.audioBufferPool.returnFrequencyBuffer(item.frequencyData);
+      this.audioBufferPool.returnTimeBuffer(item.timeData);
+    });
+    this.processingQueue = [];
     
-    return 0.8; // Gradual changes get lower weight
+    // Reduce queue size
+    this.maxQueueSize = Math.max(2, Math.floor(this.maxQueueSize * 0.5));
+    
+    // Increase frame skip interval
+    this.frameSkipInterval = Math.min(10, this.frameSkipInterval * 2);
+    
+    // Clear buffer pool
+    this.audioBufferPool.clear();
+    
+    // Force garbage collection if available
+    this.memoryMonitor.forceGarbageCollection();
+  }
+  
+  /**
+   * Start periodic cleanup to prevent memory leaks
+   */
+  private startPeriodicCleanup(): void {
+    this.cleanupInterval = window.setInterval(() => {
+      this.performPeriodicCleanup();
+    }, this.CLEANUP_INTERVAL_MS);
+  }
+  
+  /**
+   * Perform periodic cleanup operations
+   */
+  private performPeriodicCleanup(): void {
+    // Clean up old volume history
+    if (this.volumeBuffer.getSize() > 100) {
+      // Reset buffer if it gets too large
+      const recentValues = this.volumeBuffer.toArray().slice(-50);
+      this.volumeBuffer.clear();
+      recentValues.forEach(value => this.volumeBuffer.push(value));
+    }
+    
+    // Clean up processing queue if it's stale
+    const now = Date.now();
+    this.processingQueue = this.processingQueue.filter(item => {
+      const age = now - item.timestamp;
+      if (age > 5000) { // Remove items older than 5 seconds
+        this.audioBufferPool.returnFrequencyBuffer(item.frequencyData);
+        this.audioBufferPool.returnTimeBuffer(item.timeData);
+        return false;
+      }
+      return true;
+    });
+    
+    // Log performance statistics
+    const memoryStats = this.memoryMonitor.getMemoryStats();
+    const batteryStatus = this.batteryManager.getBatteryStatus();
+    const bufferStats = this.audioBufferPool.getStats();
+    
+    console.log('Performance cleanup:', {
+      memoryUsage: `${(memoryStats.current * 100).toFixed(1)}%`,
+      batteryLevel: `${(batteryStatus.level * 100).toFixed(1)}%`,
+      buffersInUse: bufferStats.totalBuffersInUse,
+      queueSize: this.processingQueue.length,
+      processingFrequency: this.frequencyAdjuster.getCurrentFrequency()
+    });
+  }
+  
+  /**
+   * Get memory usage statistics
+   */
+  getMemoryStats(): {
+    current: number;
+    average: number;
+    peak: number;
+    isHighUsage: boolean;
+  } {
+    return this.memoryMonitor.getMemoryStats();
+  }
+  
+  /**
+   * Get battery status and optimization info
+   */
+  getBatteryInfo(): {
+    status: any;
+    schedule: ProcessingSchedule;
+    recommendations: string[];
+    processingImpact: any;
+  } {
+    return {
+      status: this.batteryManager.getBatteryStatus(),
+      schedule: this.batteryManager.getCurrentSchedule(),
+      recommendations: this.batteryManager.getOptimizationRecommendations(),
+      processingImpact: this.batteryManager.getProcessingImpact()
+    };
+  }
+  
+  /**
+   * Get current processing performance metrics
+   */
+  getProcessingMetrics(): {
+    frequency: number;
+    lastProcessingTime: number;
+    queueSize: number;
+    frameSkipInterval: number;
+    usingWebWorker: boolean;
+  } {
+    return {
+      frequency: this.frequencyAdjuster.getCurrentFrequency(),
+      lastProcessingTime: this.lastProcessingTime,
+      queueSize: this.processingQueue.length,
+      frameSkipInterval: this.frameSkipInterval,
+      usingWebWorker: this.isUsingWebWorker()
+    };
   }
   
   /**
@@ -440,6 +663,32 @@ export class AudioAnalysisService implements AudioAnalysisEngine {
    */
   destroy(): void {
     this.stopAnalysis();
+    
+    // Stop periodic cleanup
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    
+    // Terminate Web Worker
+    if (this.workerManager) {
+      this.workerManager.terminate();
+      this.workerManager = null;
+    }
+    
+    // Clean up memory management
+    this.memoryMonitor.destroy();
+    this.batteryManager.destroy();
+    this.volumeBuffer.clear();
+    
+    // Return all buffers to pool and clear
+    this.processingQueue.forEach(item => {
+      this.audioBufferPool.returnFrequencyBuffer(item.frequencyData);
+      this.audioBufferPool.returnTimeBuffer(item.timeData);
+    });
+    this.processingQueue = [];
+    this.audioBufferPool.clear();
+    this.isProcessing = false;
     
     // Disconnect audio nodes
     if (this.sourceNode) {
@@ -472,6 +721,5 @@ export class AudioAnalysisService implements AudioAnalysisEngine {
     this.isInitialized = false;
     this.frequencyData = null;
     this.timeData = null;
-    this.volumeHistory = [];
   }
 }

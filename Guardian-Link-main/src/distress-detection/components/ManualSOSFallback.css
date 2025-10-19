@@ -1,0 +1,400 @@
+/**
+ * Manual SOS Fallback Component Styles
+ */
+
+.manual-sos-fallback {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  max-width: 500px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  border-left: 6px solid #ffc107;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Urgency level styling */
+.manual-sos-fallback.low {
+  border-left-color: #17a2b8;
+}
+
+.manual-sos-fallback.medium {
+  border-left-color: #ffc107;
+}
+
+.manual-sos-fallback.high {
+  border-left-color: #fd7e14;
+}
+
+.manual-sos-fallback.critical {
+  border-left-color: #dc3545;
+  animation: slideUp 0.3s ease-out, criticalPulse 2s infinite;
+}
+
+@keyframes criticalPulse {
+  0%, 100% {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    box-shadow: 0 8px 24px rgba(220, 53, 69, 0.4);
+  }
+}
+
+.fallback-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 20px 16px 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.status-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.status-message {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.3;
+}
+
+.dismiss-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.dismiss-button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.fallback-content {
+  padding: 16px 20px 20px 20px;
+}
+
+.limitations,
+.recommendations {
+  margin-bottom: 16px;
+}
+
+.limitations h4,
+.recommendations h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.limitations ul,
+.recommendations ul {
+  margin: 0;
+  padding-left: 20px;
+  list-style-type: disc;
+}
+
+.limitations li,
+.recommendations li {
+  margin-bottom: 4px;
+  font-size: 14px;
+  color: #555;
+  line-height: 1.4;
+}
+
+.manual-sos-section {
+  margin-top: 20px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.sos-description {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.manual-sos-button {
+  width: 100%;
+  padding: 16px 24px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.manual-sos-button:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.manual-sos-button:active {
+  transform: translateY(0);
+}
+
+.manual-sos-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.manual-sos-button.triggered {
+  background: #28a745;
+  animation: sosSuccess 0.5s ease-out;
+}
+
+@keyframes sosSuccess {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.countdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.countdown small {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.triggered-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.sos-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.cancel-button {
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cancel-button:hover {
+  background: #5a6268;
+}
+
+.emergency-instructions {
+  margin-top: 20px;
+  padding: 16px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+}
+
+.emergency-instructions h4 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #856404;
+}
+
+.emergency-instructions p {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #856404;
+}
+
+.emergency-instructions ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.emergency-instructions li {
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #856404;
+}
+
+.emergency-instructions strong {
+  font-weight: 700;
+  color: #dc3545;
+}
+
+.fallback-footer {
+  padding: 12px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  border-radius: 0 0 12px 12px;
+}
+
+.system-status {
+  margin: 0;
+  font-size: 12px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.low {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-badge.medium {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-badge.high {
+  background: #ffeaa7;
+  color: #b45309;
+}
+
+.status-badge.critical {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .manual-sos-fallback {
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    max-width: none;
+  }
+
+  .fallback-header {
+    padding: 16px 16px 12px 16px;
+  }
+
+  .status-message {
+    font-size: 16px;
+  }
+
+  .fallback-content {
+    padding: 12px 16px 16px 16px;
+  }
+
+  .manual-sos-button {
+    padding: 14px 20px;
+    font-size: 16px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .manual-sos-fallback {
+    border: 2px solid #000;
+  }
+
+  .manual-sos-button {
+    border: 2px solid #000;
+  }
+
+  .status-badge {
+    border: 1px solid #000;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .manual-sos-fallback {
+    animation: none;
+  }
+
+  .manual-sos-fallback.critical {
+    animation: none;
+  }
+
+  .manual-sos-button {
+    transition: none;
+  }
+
+  .manual-sos-button:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* Focus management for accessibility */
+.manual-sos-button:focus {
+  outline: 3px solid #007bff;
+  outline-offset: 2px;
+}
+
+.dismiss-button:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+.cancel-button:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}

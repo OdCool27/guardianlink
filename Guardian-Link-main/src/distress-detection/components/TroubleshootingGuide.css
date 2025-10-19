@@ -1,0 +1,381 @@
+/**
+ * Troubleshooting Guide Component Styles
+ */
+
+.troubleshooting-guide-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.troubleshooting-guide {
+  background: white;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+.guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 24px 16px 24px;
+  border-bottom: 1px solid #e9ecef;
+  background: #f8f9fa;
+}
+
+.guide-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.close-button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.guide-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.error-info {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+}
+
+.error-info h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  color: #856404;
+}
+
+.error-info p {
+  margin: 0;
+  color: #856404;
+  font-size: 14px;
+}
+
+.steps-container {
+  margin-bottom: 24px;
+}
+
+.troubleshooting-step {
+  margin-bottom: 16px;
+  padding: 20px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.troubleshooting-step.active {
+  border-color: #007bff;
+  background: #f8f9ff;
+}
+
+.troubleshooting-step.completed {
+  border-color: #28a745;
+  background: #f8fff9;
+}
+
+.troubleshooting-step.failed {
+  border-color: #dc3545;
+  background: #fff8f8;
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e9ecef;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.troubleshooting-step.active .step-number {
+  background: #007bff;
+  color: white;
+}
+
+.troubleshooting-step.completed .step-number {
+  background: #28a745;
+  color: white;
+}
+
+.troubleshooting-step.failed .step-number {
+  background: #dc3545;
+  color: white;
+}
+
+.step-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.step-description {
+  margin: 0 0 16px 0;
+  color: #555;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.step-action {
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-bottom: 12px;
+}
+
+.step-action:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.step-action:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.step-result {
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.step-result.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.step-result.failure {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.diagnostics-section {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.diagnostics-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.diagnostic-summary {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.diagnostic-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 14px;
+}
+
+.diagnostic-item:last-child {
+  border-bottom: none;
+}
+
+.diagnostic-item strong {
+  color: #333;
+}
+
+.export-button {
+  padding: 10px 16px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.export-button:hover {
+  background: #5a6268;
+}
+
+.guide-footer {
+  padding: 16px 24px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+}
+
+.guide-footer p {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+  text-align: center;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .troubleshooting-guide-overlay {
+    padding: 10px;
+  }
+
+  .troubleshooting-guide {
+    max-height: 95vh;
+  }
+
+  .guide-header {
+    padding: 20px 20px 12px 20px;
+  }
+
+  .guide-header h2 {
+    font-size: 20px;
+  }
+
+  .guide-content {
+    padding: 20px;
+  }
+
+  .troubleshooting-step {
+    padding: 16px;
+  }
+
+  .step-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .step-number {
+    align-self: flex-start;
+  }
+
+  .diagnostic-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .troubleshooting-step {
+    border-width: 3px;
+  }
+
+  .step-number {
+    border: 2px solid #000;
+  }
+
+  .step-result {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .troubleshooting-step {
+    transition: none;
+  }
+
+  .step-action {
+    transition: none;
+  }
+}
+
+/* Focus management for accessibility */
+.troubleshooting-guide:focus-within {
+  outline: none;
+}
+
+.close-button:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+.step-action:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+.export-button:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+/* Scrollbar styling */
+.guide-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.guide-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.guide-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.guide-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
