@@ -8,3 +8,4 @@ export * from './browser-support';
 export * from './storage';
 export * from './speech-processing';
 export * from './audio-processing';
+export * from './huggingface-client';

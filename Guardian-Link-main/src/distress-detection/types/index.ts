@@ -51,6 +51,11 @@ export interface DistressContext {
   timestamp: Date;
   audioData?: Blob;
   transcript?: string;
+  audioMetrics?: {
+    peakVolume: number;
+    duration: number;
+    frequencyProfile: number[];
+  };
 }
 
 export interface DistressEvent {

@@ -16,21 +16,45 @@ if (accountSid && authToken && accountSid.startsWith('AC') && authToken.length >
   console.warn('⚠️  Twilio credentials not configured - SMS features disabled');
 }
 
-const sendSosSms = async (toPhoneNumber, userName, locationLink) => {
+const sendSosSms = async (toPhoneNumber, userName, locationLink, distressInfo = null) => {
   if (!client) {
     console.warn('⚠️  SMS service not available - Twilio not configured');
     return { success: false, error: 'SMS service not configured' };
   }
   
   try {
-    await client.messages.create({
-      body: `🚨 EMERGENCY ALERT from ${userName}!
+    let message;
+    
+    if (distressInfo) {
+      const detectionMethodText = {
+        'speech': 'Voice Analysis',
+        'audio': 'Audio Analysis', 
+        'combined': 'Voice & Audio Analysis'
+      };
+      
+      message = `🚨 AI DISTRESS ALERT from ${userName}!
+
+🤖 AI detected potential distress:
+• Method: ${detectionMethodText[distressInfo.detectionMethod] || distressInfo.detectionMethod}
+• Confidence: ${distressInfo.confidence}%${distressInfo.transcript ? `\n• Speech: "${distressInfo.transcript}"` : ''}
+
+Your contact may need immediate assistance.
+
+View live location: ${locationLink}
+
+- GuardianLink`;
+    } else {
+      message = `🚨 EMERGENCY ALERT from ${userName}!
 
 Your contact has activated their SOS alert and may need immediate assistance.
 
 View their live location: ${locationLink}
 
-- GuardianLink`,
+- GuardianLink`;
+    }
+
+    await client.messages.create({
+      body: message,
       from: process.env.TWILIO_PHONE_NUMBER,
       to: toPhoneNumber
     });

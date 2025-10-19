@@ -66,7 +66,113 @@ router.post('/activate', auth, async (req, res, next) => {
     });
 
     // Return immediately - don't wait for notifications
-    res.json({ message: 'SOS activated successfully', latitude, longitude });
+    res.json({ message: 'SOS activated successfully', latitude, longitude, sessionId: session.id });
+  } catch (error) {
+    await transaction.rollback();
+    next(error);
+  }
+});
+
+// Activate SOS with distress detection context
+router.post('/activate-distress', auth, async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { latitude, longitude, distressContext, contactIds } = req.body;
+    const user = await User.findByPk(req.userId);
+    
+    // Get contacts - use specific contactIds if provided, otherwise all contacts
+    let contacts;
+    if (contactIds && contactIds.length > 0) {
+      contacts = await EmergencyContact.findAll({ 
+        where: { 
+          userId: req.userId,
+          id: contactIds 
+        } 
+      });
+    } else {
+      contacts = await EmergencyContact.findAll({ where: { userId: req.userId } });
+    }
+
+    if (contacts.length === 0) {
+      return res.status(400).json({ error: 'No emergency contacts configured' });
+    }
+
+    // Create a temporary tracking session for SOS (expires in 24 hours)
+    const session = await CompanionSession.create({
+      userId: req.userId,
+      startTime: new Date(),
+      endTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      durationMinutes: 24 * 60,
+      isActive: true,
+      isSosTriggered: true, // Mark as SOS-triggered session
+      distressDetected: true, // Mark as distress-detected SOS
+      distressContext: JSON.stringify(distressContext) // Store distress context
+    });
+
+    // Enhanced metadata for distress-triggered SOS
+    const metadata = {
+      trigger: 'distress_detection',
+      detectionMethod: distressContext.detectionMethod,
+      confidence: distressContext.confidence,
+      transcript: distressContext.transcript,
+      audioMetrics: distressContext.audioMetrics
+    };
+
+    // Log SOS activation with distress context
+    await AlertHistory.create({
+      userId: req.userId,
+      eventType: 'SOS_ACTIVATED_DISTRESS',
+      latitude,
+      longitude,
+      metadata: JSON.stringify(metadata)
+    }, { transaction });
+
+    await transaction.commit();
+
+    // Send enhanced notifications asynchronously with distress context
+    setImmediate(() => {
+      contacts.forEach(async (contact) => {
+        try {
+          if (user.sosAlertsEnabled) {
+            // Create public tracking link
+            const locationLink = `${process.env.APP_BASE_URL}/track/${session.id}`;
+            
+            // Enhanced notification content for distress detection
+            const distressInfo = {
+              detectionMethod: distressContext.detectionMethod,
+              confidence: Math.round(distressContext.confidence * 100),
+              transcript: distressContext.transcript,
+              timestamp: distressContext.timestamp
+            };
+            
+            // Send email and SMS with distress context
+            Promise.all([
+              sendSosAlert(contact.email, user.fullName, locationLink, distressInfo).catch(err => 
+                console.error(`Email failed for ${contact.email}:`, err.message)
+              ),
+              contact.phoneNumber ? sendSosSms(contact.phoneNumber, user.fullName, locationLink, distressInfo).catch(err =>
+                console.error(`SMS failed for ${contact.phoneNumber}:`, err.message)
+              ) : Promise.resolve()
+            ]);
+          }
+        } catch (err) {
+          console.error(`Failed to notify ${contact.email}:`, err);
+        }
+      });
+    });
+
+    // Return immediately - don't wait for notifications
+    res.json({ 
+      message: 'Distress SOS activated successfully', 
+      latitude, 
+      longitude, 
+      sessionId: session.id,
+      distressContext: {
+        detectionMethod: distressContext.detectionMethod,
+        confidence: distressContext.confidence
+      }
+    });
   } catch (error) {
     await transaction.rollback();
     next(error);

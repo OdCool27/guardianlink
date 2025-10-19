@@ -171,6 +171,34 @@ export const sosAPI = {
     });
   },
 
+  // Activate SOS emergency with distress detection context
+  activateSOSWithDistress: async (
+    latitude: number, 
+    longitude: number, 
+    distressContext: {
+      detectionMethod: 'speech' | 'audio' | 'combined';
+      confidence: number;
+      timestamp: Date;
+      transcript?: string;
+      audioMetrics?: {
+        peakVolume: number;
+        duration: number;
+        frequencyProfile: number[];
+      };
+    },
+    contactIds?: number[]
+  ) => {
+    return apiRequest('/api/sos/activate-distress', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        latitude, 
+        longitude, 
+        distressContext,
+        contactIds 
+      }),
+    });
+  },
+
   // Deactivate SOS emergency
   deactivateSOS: async (sessionId: number) => {
     return apiRequest('/api/sos/deactivate', {

@@ -22,5 +22,8 @@ export * from './services';
 // Components
 export * from './components';
 
+// Hooks
+export * from './hooks';
+
 // Version information
 export const DISTRESS_DETECTION_VERSION = '1.0.0';

@@ -169,8 +169,9 @@ export function assessAudioQuality(timeData: any, frequencyData: any): AudioQual
   
   // Estimate SNR by comparing signal energy to noise floor
   const rms = calculateRMS(timeData);
-  const noiseFloor = Math.min(...Array.from(frequencyData).slice(0, 10)); // Low frequency bins as noise estimate
-  const snr = amplitudeToDecibels(rms) - amplitudeToDecibels((noiseFloor as number) / 255);
+  const lowFreqBins = Array.from(frequencyData).slice(0, 10) as number[]; // Low frequency bins as noise estimate
+  const noiseFloor = Math.min(...lowFreqBins);
+  const snr = amplitudeToDecibels(rms) - amplitudeToDecibels(noiseFloor / 255);
   
   // Calculate clarity based on spectral characteristics
   const spectralCentroid = calculateSpectralCentroid(frequencyData, 44100);

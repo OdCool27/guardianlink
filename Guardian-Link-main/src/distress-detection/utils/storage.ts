@@ -11,6 +11,39 @@ import { DEFAULT_DISTRESS_SETTINGS, STORAGE_KEYS } from '../config';
  */
 
 /**
+ * Generate a unique ID for events and other entities
+ */
+export const generateId = (): string => {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
+/**
+ * Generic function to save data to localStorage
+ */
+export const saveToStorage = (key: string, data: any): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Failed to save data to storage (${key}):`, error);
+  }
+};
+
+/**
+ * Generic function to load data from localStorage
+ */
+export const loadFromStorage = (key: string): any => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error(`Failed to load data from storage (${key}):`, error);
+  }
+  return null;
+};
+
+/**
  * Save distress detection settings to localStorage
  */
 export const saveDistressSettings = (settings: DistressSettings): void => {

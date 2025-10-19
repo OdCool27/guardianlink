@@ -27,17 +27,37 @@ if (smtpUser && smtpPass && smtpHost &&
   console.warn('⚠️  Email credentials not configured - Email features disabled');
 }
 
-const sendSosAlert = async (toEmail, userName, locationLink) => {
+const sendSosAlert = async (toEmail, userName, locationLink, distressInfo = null) => {
   if (!transporter) {
     console.warn('⚠️  Email service not available - SMTP not configured');
     return { success: false, error: 'Email service not configured' };
   }
   
   try {
+    // Build distress context section if provided
+    let distressSection = '';
+    if (distressInfo) {
+      const detectionMethodText = {
+        'speech': 'Voice/Speech Analysis',
+        'audio': 'Audio Pattern Analysis', 
+        'combined': 'Voice & Audio Analysis'
+      };
+      
+      distressSection = `
+        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 15px 0; border-radius: 5px;">
+          <h3 style="color: #856404; margin-top: 0;">🤖 AI Distress Detection Alert</h3>
+          <p style="margin: 5px 0;"><strong>Detection Method:</strong> ${detectionMethodText[distressInfo.detectionMethod] || distressInfo.detectionMethod}</p>
+          <p style="margin: 5px 0;"><strong>Confidence Level:</strong> ${distressInfo.confidence}%</p>
+          ${distressInfo.transcript ? `<p style="margin: 5px 0;"><strong>Detected Speech:</strong> "${distressInfo.transcript}"</p>` : ''}
+          <p style="margin: 5px 0; font-size: 12px; color: #856404;">This alert was automatically triggered by AI analysis of audio patterns indicating potential distress.</p>
+        </div>
+      `;
+    }
+
     const mailOptions = {
     from: process.env.SMTP_USER,
     to: toEmail,
-    subject: `🚨 EMERGENCY ALERT from ${userName}`,
+    subject: distressInfo ? `🚨 AI DISTRESS ALERT from ${userName}` : `🚨 EMERGENCY ALERT from ${userName}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -57,7 +77,8 @@ const sendSosAlert = async (toEmail, userName, locationLink) => {
             <h1>🚨 EMERGENCY ALERT</h1>
           </div>
           <div class="content">
-            <p><strong>${userName} has activated their SOS emergency alert!</strong></p>
+            <p><strong>${userName} ${distressInfo ? 'may be in distress!' : 'has activated their SOS emergency alert!'}</strong></p>
+            ${distressSection}
             <p>This is an urgent notification from GuardianLink. Your contact may need immediate assistance.</p>
             <p>Click the button below to view their live location:</p>
             <a href="${locationLink}" class="button">View Live Location</a>

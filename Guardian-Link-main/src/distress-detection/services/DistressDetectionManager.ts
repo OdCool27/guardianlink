@@ -1,0 +1,513 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { 
+  DistressDetectionManager as IDistressDetectionManager,
+  SpeechRecognitionEngine,
+  AudioAnalysisEngine,
+  DistressClassificationService as IDistressClassificationService,
+  PermissionsManager as IPermissionsManager
+} from '../interfaces';
+import { 
+  DistressSettings, 
+  DistressDetectionState, 
+  DistressDetectionStatus,
+  DistressEvent,
+  DistressContext,
+  DistressAnalysis,
+  VerificationResult
+} from '../types';
+import { SpeechRecognitionService } from './SpeechRecognitionService';
+import { AudioAnalysisService } from './AudioAnalysisService';
+import { DistressClassificationService } from './DistressClassificationService';
+import { VerificationService } from './VerificationService';
+import { PermissionsManager } from './PermissionsManager';
+import { DetectionEventHandler, DetectionCorrelation } from './DetectionEventHandler';
+import { DEFAULT_DISTRESS_SETTINGS } from '../config/defaults';
+import { generateId } from '../utils/storage';
+
+/**
+ * Central coordinator for all distress detection activities
+ * Manages service lifecycle, detection correlation, and emergency response
+ * Requirements: 1.1, 2.5, 3.5
+ */
+export class DistressDetectionManager implements IDistressDetectionManager {
+  // Core services
+  private speechService: SpeechRecognitionEngine;
+  private audioService: AudioAnalysisEngine;
+  private classificationService: IDistressClassificationService;
+  private verificationService: VerificationService;
+  private permissionsManager: IPermissionsManager;
+  private eventHandler: DetectionEventHandler;
+
+  // State management
+  private state: DistressDetectionState = {
+    status: 'inactive',
+    isListening: false,
+    isAnalyzing: false
+  };
+
+  private settings: DistressSettings = DEFAULT_DISTRESS_SETTINGS;
+  private stateChangeCallbacks: ((state: DistressDetectionState) => void)[] = [];
+
+  // Detection configuration
+  private confidenceThreshold = 70; // Minimum confidence for verification
+
+  constructor() {
+    this.speechService = new SpeechRecognitionService();
+    this.audioService = new AudioAnalysisService();
+    this.classificationService = new DistressClassificationService();
+    this.verificationService = new VerificationService();
+    this.permissionsManager = new PermissionsManager();
+    this.eventHandler = new DetectionEventHandler();
+
+    this.setupServiceCallbacks();
+    this.setupEventHandlerCallbacks();
+  }
+
+  /**
+   * Initialize and start distress monitoring
+   * Requirements: 1.1
+   */
+  async startMonitoring(): Promise<void> {
+    try {
+      this.updateState({ status: 'initializing' });
+
+      // Check and request permissions
+      const hasPermissions = await this.permissionsManager.requestMicrophonePermission();
+      if (!hasPermissions) {
+        throw new Error('Microphone permission is required for distress detection');
+      }
+
+      // Initialize services based on settings
+      if (this.settings.speechRecognition.enabled) {
+        await this.speechService.initialize();
+        this.speechService.startListening();
+        this.updateState({ isListening: true });
+      }
+
+      if (this.settings.audioAnalysis.enabled) {
+        await this.audioService.initialize();
+        this.audioService.startAnalysis();
+        this.updateState({ isAnalyzing: true });
+      }
+
+      this.updateState({ status: 'active' });
+      console.log('Distress detection monitoring started successfully');
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.updateState({ 
+        status: 'error', 
+        errorMessage,
+        isListening: false,
+        isAnalyzing: false 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Stop all distress monitoring activities
+   */
+  stopMonitoring(): void {
+    try {
+      // Stop all services
+      this.speechService.stopListening();
+      this.audioService.stopAnalysis();
+
+      // Clear any pending verifications
+      this.verificationService.stopVerification();
+
+      // Reset state
+      this.updateState({
+        status: 'inactive',
+        isListening: false,
+        isAnalyzing: false,
+        errorMessage: undefined
+      });
+
+      console.log('Distress detection monitoring stopped');
+
+    } catch (error) {
+      console.error('Error stopping distress detection:', error);
+      this.updateState({ 
+        status: 'error', 
+        errorMessage: 'Failed to stop monitoring properly' 
+      });
+    }
+  }
+
+  /**
+   * Update detection settings and reconfigure services
+   */
+  updateSettings(newSettings: DistressSettings): void {
+    const wasActive = this.state.status === 'active';
+    
+    // Stop monitoring if active
+    if (wasActive) {
+      this.stopMonitoring();
+    }
+
+    // Update settings
+    this.settings = { ...newSettings };
+    this.confidenceThreshold = newSettings.nlpProcessing.confidenceThreshold;
+
+    // Update service configurations
+    this.speechService.updateSettings({
+      language: newSettings.speechRecognition.language,
+      continuous: newSettings.speechRecognition.continuousMode
+    });
+
+    this.audioService.updateSettings({
+      volumeThreshold: newSettings.audioAnalysis.volumeThreshold,
+      spikeDetection: newSettings.audioAnalysis.spikeDetection,
+      frequencyAnalysis: newSettings.audioAnalysis.frequencyAnalysis
+    });
+
+    this.classificationService.setProcessingMode(newSettings.nlpProcessing.mode);
+
+    // Restart monitoring if it was active
+    if (wasActive && newSettings.enabled) {
+      this.startMonitoring().catch(error => {
+        console.error('Failed to restart monitoring after settings update:', error);
+      });
+    }
+
+    console.log('Distress detection settings updated');
+  }
+
+  /**
+   * Handle distress detection from various sources
+   * Requirements: 2.5, 3.5
+   */
+  handleDistressDetected(
+    source: 'speech' | 'audio', 
+    confidence: number, 
+    metadata?: any
+  ): void {
+    // Add event to event handler for correlation and logging
+    const distressEvent = this.eventHandler.addEvent(source, confidence, {
+      transcript: metadata?.transcript,
+      audioMetrics: metadata?.audioMetrics,
+      location: metadata?.location,
+      rawData: metadata
+    });
+
+    // Update state with latest detection
+    this.updateState({ lastDetection: distressEvent });
+
+    // Check if confidence meets threshold for verification
+    if (confidence >= this.confidenceThreshold) {
+      console.log(`Distress detected: ${source} with ${confidence}% confidence (above threshold)`);
+    } else {
+      console.log(`Distress detected but confidence (${confidence}) below threshold (${this.confidenceThreshold})`);
+    }
+  }
+
+  /**
+   * Get current detection state
+   */
+  getState(): DistressDetectionState {
+    return { ...this.state };
+  }
+
+  /**
+   * Subscribe to state changes
+   */
+  onStateChange(callback: (state: DistressDetectionState) => void): void {
+    this.stateChangeCallbacks.push(callback);
+  }
+
+  /**
+   * Unsubscribe from state changes
+   */
+  offStateChange(callback: (state: DistressDetectionState) => void): void {
+    const index = this.stateChangeCallbacks.indexOf(callback);
+    if (index > -1) {
+      this.stateChangeCallbacks.splice(index, 1);
+    }
+  }
+
+  /**
+   * Setup callbacks for all services
+   */
+  private setupServiceCallbacks(): void {
+    // Speech recognition callbacks
+    this.speechService.onResult((transcript: string, confidence: number) => {
+      this.handleSpeechResult(transcript, confidence);
+    });
+
+    this.speechService.onError((error: Error) => {
+      console.error('Speech recognition error:', error);
+      this.handleServiceError('speech', error);
+    });
+
+    // Audio analysis callbacks
+    this.audioService.onDistressDetected((confidence: number, metrics: any) => {
+      this.handleDistressDetected('audio', confidence, { audioMetrics: metrics });
+    });
+
+    this.audioService.onError((error: Error) => {
+      console.error('Audio analysis error:', error);
+      this.handleServiceError('audio', error);
+    });
+  }
+
+  /**
+   * Handle speech recognition results
+   */
+  private async handleSpeechResult(transcript: string, confidence: number): void {
+    try {
+      // Classify the speech for distress content
+      const analysis: DistressAnalysis = await this.classificationService.analyzeText(transcript);
+      
+      if (analysis.isDistress) {
+        // Combine speech confidence with classification confidence
+        const combinedConfidence = Math.min(100, (confidence + analysis.confidence) / 2);
+        
+        this.handleDistressDetected('speech', combinedConfidence, {
+          transcript,
+          analysis,
+          detectedPhrases: analysis.detectedPhrases
+        });
+      }
+    } catch (error) {
+      console.error('Error processing speech result:', error);
+    }
+  }
+
+  /**
+   * Setup event handler callbacks for correlation and verification triggering
+   * Requirements: 2.5, 3.5, 4.1
+   */
+  private setupEventHandlerCallbacks(): void {
+    // Listen for event correlations to trigger verification
+    this.eventHandler.onCorrelation((correlation: DetectionCorrelation) => {
+      console.log(`Event correlation detected with ${correlation.combinedConfidence}% confidence`);
+      
+      if (correlation.combinedConfidence >= this.confidenceThreshold) {
+        const context: DistressContext = {
+          detectionMethod: 'combined',
+          confidence: correlation.combinedConfidence,
+          timestamp: correlation.primaryEvent.timestamp,
+          transcript: correlation.primaryEvent.transcript,
+          audioData: undefined // Could be added if needed
+        };
+
+        this.triggerVerification(context);
+      }
+    });
+
+    // Listen for individual high-confidence events
+    this.eventHandler.onEvent((event: DistressEvent) => {
+      if (event.confidence >= this.confidenceThreshold && event.detectionMethod !== 'combined') {
+        // Check if this event will be correlated (wait a brief moment)
+        setTimeout(() => {
+          const correlations = this.eventHandler.getActiveCorrelations();
+          const isCorrelated = correlations.some(c => 
+            c.correlatedEvents.some(e => e.id === event.id)
+          );
+
+          // Only trigger verification if not part of a correlation
+          if (!isCorrelated) {
+            const context: DistressContext = {
+              detectionMethod: event.detectionMethod,
+              confidence: event.confidence,
+              timestamp: event.timestamp,
+              transcript: event.transcript,
+              audioData: undefined
+            };
+
+            this.triggerVerification(context);
+          }
+        }, 1000); // Wait 1 second for potential correlations
+      }
+    });
+  }
+
+  /**
+   * Trigger verification dialog with timeout handling
+   * Requirements: 4.1
+   */
+  private triggerVerification(context: DistressContext): void {
+    console.log(`Triggering verification for ${context.detectionMethod} detection with ${context.confidence}% confidence`);
+
+    this.verificationService.startVerification(
+      context,
+      this.settings.verification.timeoutSeconds,
+      (result: VerificationResult, shouldTriggerSOS: boolean) => {
+        this.handleVerificationResult(result, shouldTriggerSOS, context);
+      }
+    );
+  }
+
+  /**
+   * Handle verification dialog results
+   */
+  private handleVerificationResult(
+    result: VerificationResult, 
+    shouldTriggerSOS: boolean, 
+    context: DistressContext
+  ): void {
+    // Update the event in the event handler
+    if (this.state.lastDetection) {
+      const userResponse = result.action === 'confirm' ? 'confirmed' : 
+                          result.action === 'dismiss' ? 'dismissed' : 'timeout';
+      
+      this.eventHandler.updateEvent(this.state.lastDetection.id, {
+        userResponse,
+        sosTriggered: shouldTriggerSOS
+      });
+
+      // Update local state
+      this.state.lastDetection.userResponse = userResponse;
+      this.state.lastDetection.sosTriggered = shouldTriggerSOS;
+    }
+
+    if (shouldTriggerSOS) {
+      this.triggerEmergencyResponse(context);
+    }
+
+    // Notify state change
+    this.notifyStateChange();
+  }
+
+  /**
+   * Trigger emergency response using the EmergencyResponseHandler
+   * Requirements: 5.1, 5.2, 5.5
+   */
+  private async triggerEmergencyResponse(context: DistressContext): Promise<void> {
+    try {
+      console.log('EMERGENCY: Triggering SOS response for distress detection', {
+        method: context.detectionMethod,
+        confidence: context.confidence,
+        timestamp: context.timestamp
+      });
+
+      // Import and use the emergency response handler
+      const { emergencyResponseHandler } = await import('./EmergencyResponseHandler');
+      
+      // Log the distress event
+      if (this.state.lastDetection) {
+        emergencyResponseHandler.logDistressEvent(this.state.lastDetection);
+      }
+
+      // Trigger SOS with distress context
+      await emergencyResponseHandler.triggerSOS(context);
+
+      // Notify emergency contacts with distress details
+      await emergencyResponseHandler.notifyEmergencyContacts(context);
+
+      // Activate location sharing
+      await emergencyResponseHandler.activateLocationSharing(context);
+
+      console.log('✅ Emergency response triggered successfully');
+
+    } catch (error) {
+      console.error('❌ Failed to trigger emergency response:', error);
+      
+      // Update state with error
+      this.updateState({
+        status: 'error',
+        errorMessage: `Emergency response failed: ${error.message}`
+      });
+
+      // Still try to show some kind of fallback notification to user
+      alert(`Emergency response failed: ${error.message}. Please manually contact emergency services if needed.`);
+    }
+  }
+
+  /**
+   * Handle service errors with recovery strategies
+   */
+  private handleServiceError(service: string, error: Error): void {
+    console.error(`${service} service error:`, error);
+
+    // Implement service-specific recovery strategies
+    if (service === 'speech' && this.state.status === 'active') {
+      // Try to restart speech recognition
+      setTimeout(() => {
+        if (this.settings.speechRecognition.enabled) {
+          this.speechService.startListening();
+        }
+      }, 2000);
+    }
+
+    if (service === 'audio' && this.state.status === 'active') {
+      // Try to restart audio analysis
+      setTimeout(() => {
+        if (this.settings.audioAnalysis.enabled) {
+          this.audioService.startAnalysis();
+        }
+      }, 2000);
+    }
+  }
+
+
+
+  /**
+   * Update internal state and notify listeners
+   */
+  private updateState(updates: Partial<DistressDetectionState>): void {
+    this.state = { ...this.state, ...updates };
+    this.notifyStateChange();
+  }
+
+  /**
+   * Notify all state change listeners
+   */
+  private notifyStateChange(): void {
+    this.stateChangeCallbacks.forEach(callback => {
+      try {
+        callback(this.getState());
+      } catch (error) {
+        console.error('Error in state change callback:', error);
+      }
+    });
+  }
+
+  /**
+   * Get detection metrics and statistics
+   */
+  public getDetectionMetrics() {
+    return this.eventHandler.getMetrics(24 * 60 * 60 * 1000); // Last 24 hours
+  }
+
+  /**
+   * Get recent detection events for debugging
+   */
+  public getRecentEvents(limit: number = 10): DistressEvent[] {
+    return this.eventHandler.getRecentEvents(limit);
+  }
+
+  /**
+   * Get active correlations between detection events
+   */
+  public getActiveCorrelations() {
+    return this.eventHandler.getActiveCorrelations();
+  }
+
+  /**
+   * Filter detection events based on criteria
+   */
+  public filterEvents(filter: any) {
+    return this.eventHandler.filterEvents(filter);
+  }
+
+  /**
+   * Export detection events for analysis
+   */
+  public exportEvents(format: 'json' | 'csv' = 'json'): string {
+    return this.eventHandler.exportEvents(format);
+  }
+
+  /**
+   * Cleanup old detection events
+   */
+  public cleanupOldEvents(maxAge?: number): void {
+    this.eventHandler.cleanup(maxAge);
+  }
+}

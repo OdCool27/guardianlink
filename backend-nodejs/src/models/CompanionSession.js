@@ -39,6 +39,16 @@ const CompanionSession = sequelize.define('CompanionSession', {
   stoppedAt: {
     type: DataTypes.DATE,
     field: 'stopped_at'
+  },
+  distressDetected: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'distress_detected'
+  },
+  distressContext: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'distress_context'
   }
 }, {
   tableName: 'companion_sessions',
