@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Distress Detection Testing</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+        .tab { padding: 10px 20px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
+        .tab.active { background: #007bff; color: white; }
+        .content { display: flex; gap: 20px; }
+        .main { flex: 2; }
+        .results { flex: 1; background: #f8f9fa; padding: 15px; border-radius: 5px; height: 500px; overflow-y: auto; }
+        .test-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+        .test-btn { padding: 6px 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .test-btn.normal { background: #d1edff; border-color: #bee5eb; }
+        .result { background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-bottom: 10px; font-size: 12px; }
+        .result.distress { background: #fff3cd; border-color: #ffeaa7; }
+        .result.normal { background: #d1edff; border-color: #bee5eb; }
+        .controls { margin: 20px 0; }
+        .btn { padding: 12px 24px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; }
+        .btn.danger { background: #dc3545; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .metrics { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; font-family: monospace; }
+        input[type="text"] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 AI Distress Detection Testing Dashboard</h1>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('speech')">💬 Speech Classification</div>
+            <div class="tab" onclick="showTab('audio')">🎤 Audio Analysis</div>
+            <div class="tab" onclick="showTab('recognition')">🗣️ Speech Recognition</div>
+        </div>
+
+        <div class="content">
+            <div class="main">
+                <!-- Speech Classification Tab -->
+                <div id="speech-tab" class="tab-content">
+                    <h2>Speech Classification Testing</h2>
+                    
+                    <div>
+                        <h3>Manual Text Testing</h3>
+                        <input type="text" id="test-text" placeholder="Enter text to analyze...">
+                        <button class="btn" onclick="testSpeechClassification()">Analyze</button>
+                    </div>
+
+                    <div>
+                        <h3>Quick Test Phrases</h3>
+                        <h4 style="color: #dc3545;">Distress Phrases (should detect)</h4>
+                        <div class="test-buttons">
+                            <button class="test-btn" onclick="testPhrase('Help me please!')">Help me please!</button>
+                            <button class="test-btn" onclick="testPhrase('I\'m scared, someone help')">I'm scared, someone help</button>
+                            <button class="test-btn" onclick="testPhrase('Stop it, leave me alone')">Stop it, leave me alone</button>
+                            <button class="test-btn" onclick="testPhrase('Please don\'t hurt me')">Please don't hurt me</button>
+                            <button class="test-btn" onclick="testPhrase('Call the police now')">Call the police now</button>
+                        </div>
+
+                        <h4 style="color: #28a745;">Normal Phrases (should NOT detect)</h4>
+                        <div class="test-buttons">
+                            <button class="test-btn normal" onclick="testPhrase('Everything is fine, thank you')">Everything is fine, thank you</button>
+                            <button class="test-btn normal" onclick="testPhrase('Having a great day')">Having a great day</button>
+                            <button class="test-btn normal" onclick="testPhrase('How are you doing?')">How are you doing?</button>
+                            <button class="test-btn normal" onclick="testPhrase('The weather is nice today')">The weather is nice today</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Audio Analysis Tab -->
+                <div id="audio-tab" class="tab-content" style="display: none;">
+                    <h2>Audio Analysis Testing</h2>
+                    
+                    <div class="controls">
+                        <button id="audio-btn" class="btn" onclick="toggleAudioAnalysis()">🎤 Start Audio Analysis</button>
+                    </div>
+
+                    <div id="audio-metrics" class="metrics" style="display: none;">
+                        <h3>Live Audio Metrics</h3>
+                        <div id="metrics-display">Starting analysis...</div>
+                    </div>
+
+                    <div>
+                        <h4>Testing Instructions:</h4>
+                        <ul>
+                            <li>Click "Start Audio Analysis" and allow microphone access</li>
+                            <li>Try making sudden loud noises (clap, shout, bang on desk)</li>
+                            <li>Try high-pitched sounds (scream, whistle)</li>
+                            <li>Watch for distress detection alerts in the results panel</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Speech Recognition Tab -->
+                <div id="recognition-tab" class="tab-content" style="display: none;">
+                    <h2>Speech Recognition Testing</h2>
+                    
+                    <div class="controls">
+                        <button id="speech-btn" class="btn" onclick="toggleSpeechRecognition()">🗣️ Start Speech Recognition</button>
+                    </div>
+
+                    <div>
+                        <h4>Testing Instructions:</h4>
+                        <ul>
+                            <li>Click "Start Speech Recognition" and allow microphone access</li>
+                            <li>Speak distress phrases like "help me please" or "I'm scared"</li>
+                            <li>Try normal phrases like "hello how are you"</li>
+                            <li>Watch for real-time speech-to-text and distress detection</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results">
+                <h2>🔍 Test Results</h2>
+                <div id="results-container">
+                    <div style="color: #666; text-align: center; margin-top: 50px;">
+                        No test results yet.<br>
+                        Start testing to see results here.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import your distress detection services
+        // import { DistressClassificationService } from './src/distress-detection/services/DistressClassificationService.js';
+        // import { AudioAnalysisService } from './src/distress-detection/services/AudioAnalysisService.js';
+        // import { SpeechRecognitionService } from './src/distress-detection/services/SpeechRecognitionService.js';
+
+        let classificationService = null;
+        let audioService = null;
+        let speechService = null;
+        let isAudioAnalyzing = false;
+        let isSpeechListening = false;
+
+        // Initialize services (you'll need to adapt this to your actual imports)
+        window.addEventListener('load', async () => {
+            try {
+                // Initialize your services here
+                console.log('🧪 AI Testing Dashboard loaded');
+                console.log('Note: You need to import your actual service classes for full functionality');
+            } catch (error) {
+                console.error('Failed to initialize services:', error);
+            }
+        });
+
+        // Tab switching
+        window.showTab = (tabName) => {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-tab').style.display = 'block';
+        };
+
+        // Add test result
+        function addTestResult(result) {
+            const container = document.getElementById('results-container');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${result.isDistress ? 'distress' : 'normal'}`;
+            
+            resultDiv.innerHTML = `
+                <div style="font-weight: bold; margin-bottom: 5px;">
+                    ${result.type} - ${new Date().toLocaleTimeString()}
+                </div>
+                <div><strong>Input:</strong> ${result.input}</div>
+                <div><strong>Distress:</strong> ${result.isDistress ? '🚨 YES' : '✅ NO'}</div>
+                <div><strong>Confidence:</strong> ${result.confidence}%</div>
+                ${result.phrases ? `<div><strong>Phrases:</strong> ${result.phrases.join(', ')}</div>` : ''}
+                ${result.sentiment ? `<div><strong>Sentiment:</strong> ${result.sentiment}</div>` : ''}
+            `;
+            
+            if (container.children.length === 1 && container.children[0].style.color === 'rgb(102, 102, 102)') {
+                container.innerHTML = '';
+            }
+            
+            container.insertBefore(resultDiv, container.firstChild);
+            
+            // Keep only last 10 results
+            while (container.children.length > 10) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        // Speech Classification Testing
+        window.testPhrase = (phrase) => {
+            document.getElementById('test-text').value = phrase;
+            testSpeechClassification();
+        };
+
+        window.testSpeechClassification = async () => {
+            const text = document.getElementById('test-text').value;
+            if (!text.trim()) return;
+
+            // Mock classification for demo (replace with actual service call)
+            const mockResult = mockClassifyText(text);
+            
+            addTestResult({
+                type: 'Speech Classification',
+                input: text,
+                isDistress: mockResult.isDistress,
+                confidence: mockResult.confidence,
+                phrases: mockResult.detectedPhrases,
+                sentiment: mockResult.sentiment
+            });
+        };
+
+        // Mock classification function (replace with actual service)
+        function mockClassifyText(text) {
+            const distressPhrases = ['help', 'scared', 'stop', 'hurt', 'police', 'emergency'];
+            const lowerText = text.toLowerCase();
+            
+            const detectedPhrases = distressPhrases.filter(phrase => lowerText.includes(phrase));
+            const isDistress = detectedPhrases.length > 0;
+            const confidence = isDistress ? Math.min(70 + detectedPhrases.length * 10, 95) : Math.random() * 30;
+            
+            return {
+                isDistress,
+                confidence: Math.round(confidence),
+                detectedPhrases,
+                sentiment: isDistress ? 'negative' : 'neutral'
+            };
+        }
+
+        // Audio Analysis Testing
+        window.toggleAudioAnalysis = async () => {
+            const btn = document.getElementById('audio-btn');
+            const metrics = document.getElementById('audio-metrics');
+            
+            if (!isAudioAnalyzing) {
+                try {
+                    // Request microphone access
+                    await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    btn.textContent = '🛑 Stop Audio Analysis';
+                    btn.classList.add('danger');
+                    metrics.style.display = 'block';
+                    isAudioAnalyzing = true;
+                    
+                    // Mock audio analysis (replace with actual service)
+                    startMockAudioAnalysis();
+                    
+                } catch (error) {
+                    alert('Microphone access denied. Please allow microphone access and try again.');
+                }
+            } else {
+                btn.textContent = '🎤 Start Audio Analysis';
+                btn.classList.remove('danger');
+                metrics.style.display = 'none';
+                isAudioAnalyzing = false;
+                
+                stopMockAudioAnalysis();
+            }
+        };
+
+        let audioInterval;
+        function startMockAudioAnalysis() {
+            audioInterval = setInterval(() => {
+                const volume = Math.random() * 100;
+                const peak = Math.max(volume, Math.random() * 100);
+                
+                document.getElementById('metrics-display').innerHTML = `
+                    Current Volume: ${volume.toFixed(1)} dB<br>
+                    Peak Volume: ${peak.toFixed(1)} dB<br>
+                    Average Volume: ${(volume * 0.8).toFixed(1)} dB
+                `;
+                
+                // Randomly trigger distress detection for demo
+                if (Math.random() < 0.05) { // 5% chance per update
+                    addTestResult({
+                        type: 'Audio Detection',
+                        input: 'Audio input',
+                        isDistress: true,
+                        confidence: Math.round(70 + Math.random() * 25),
+                        metrics: { peakVolume: peak.toFixed(1) }
+                    });
+                }
+            }, 500);
+        }
+
+        function stopMockAudioAnalysis() {
+            if (audioInterval) {
+                clearInterval(audioInterval);
+            }
+        }
+
+        // Speech Recognition Testing
+        window.toggleSpeechRecognition = async () => {
+            const btn = document.getElementById('speech-btn');
+            
+            if (!isSpeechListening) {
+                try {
+                    // Check for speech recognition support
+                    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                        alert('Speech recognition not supported in this browser');
+                        return;
+                    }
+                    
+                    btn.textContent = '🛑 Stop Listening';
+                    btn.classList.add('danger');
+                    isSpeechListening = true;
+                    
+                    // Mock speech recognition (replace with actual service)
+                    startMockSpeechRecognition();
+                    
+                } catch (error) {
+                    alert('Speech recognition failed: ' + error.message);
+                }
+            } else {
+                btn.textContent = '🗣️ Start Speech Recognition';
+                btn.classList.remove('danger');
+                isSpeechListening = false;
+                
+                stopMockSpeechRecognition();
+            }
+        };
+
+        let speechTimeout;
+        function startMockSpeechRecognition() {
+            // Mock periodic speech recognition results
+            const mockPhrases = [
+                'hello how are you',
+                'help me please',
+                'everything is fine',
+                'I am scared',
+                'having a great day'
+            ];
+            
+            speechTimeout = setTimeout(() => {
+                if (isSpeechListening) {
+                    const phrase = mockPhrases[Math.floor(Math.random() * mockPhrases.length)];
+                    const result = mockClassifyText(phrase);
+                    
+                    addTestResult({
+                        type: 'Speech Recognition',
+                        input: phrase,
+                        isDistress: result.isDistress,
+                        confidence: result.confidence,
+                        phrases: result.detectedPhrases,
+                        sentiment: result.sentiment
+                    });
+                    
+                    startMockSpeechRecognition(); // Continue listening
+                }
+            }, 3000 + Math.random() * 5000); // Random interval 3-8 seconds
+        }
+
+        function stopMockSpeechRecognition() {
+            if (speechTimeout) {
+                clearTimeout(speechTimeout);
+            }
+        }
+    </script>
+</body>
+</html>

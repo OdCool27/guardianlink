@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Distress Detection Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success { background-color: #d4edda; color: #155724; }
+        .status.error { background-color: #f8d7da; color: #721c24; }
+        .status.info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🤖 AI Distress Detection Integration Test</h1>
+    
+    <div class="test-panel">
+        <h2>Integration Status</h2>
+        <div id="integration-status" class="status info">Checking integration...</div>
+        <button onclick="testIntegration()">Test Integration</button>
+    </div>
+
+    <div class="test-panel">
+        <h2>Microphone Permission</h2>
+        <div id="mic-status" class="status info">Checking microphone permission...</div>
+        <button onclick="testMicrophone()">Request Microphone Access</button>
+    </div>
+
+    <div class="test-panel">
+        <h2>AI Services Test</h2>
+        <div id="ai-status" class="status info">Ready to test AI services</div>
+        <button onclick="testAIServices()">Test AI Services</button>
+        <button onclick="simulateDistress()">Simulate Distress Detection</button>
+    </div>
+
+    <div class="test-panel">
+        <h2>Backend API Test</h2>
+        <div id="api-status" class="status info">Ready to test backend API</div>
+        <button onclick="testBackendAPI()">Test Shared Sessions API</button>
+    </div>
+
+    <div class="test-panel">
+        <h2>Test Log</h2>
+        <div id="test-log" class="log">Test log will appear here...\n</div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <script type="module">
+        let log = '';
+        
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            log += `[${timestamp}] ${message}\n`;
+            document.getElementById('test-log').textContent = log;
+            document.getElementById('test-log').scrollTop = document.getElementById('test-log').scrollHeight;
+        }
+
+        function updateStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        window.clearLog = () => {
+            log = '';
+            document.getElementById('test-log').textContent = 'Test log cleared...\n';
+        };
+
+        window.testIntegration = async () => {
+            addLog('Testing integration...');
+            try {
+                // Test if the main app imports work
+                const { DistressDetectionManager } = await import('./src/distress-detection/services/DistressDetectionManager.js');
+                const { VerificationDialog } = await import('./src/distress-detection/components/VerificationDialog.js');
+                const { PermissionsManager } = await import('./src/distress-detection/services/PermissionsManager.js');
+                
+                addLog('✅ All imports successful');
+                updateStatus('integration-status', 'Integration imports working correctly', 'success');
+                
+                // Test manager creation
+                const manager = new DistressDetectionManager();
+                addLog('✅ DistressDetectionManager created successfully');
+                
+                // Test callback registration
+                manager.onDistressDetected((context) => {
+                    addLog(`🚨 Distress detected: ${context.detectionMethod} with ${context.confidence}% confidence`);
+                });
+                addLog('✅ Callback registration working');
+                
+                updateStatus('integration-status', 'All integration tests passed!', 'success');
+                
+            } catch (error) {
+                addLog(`❌ Integration test failed: ${error.message}`);
+                updateStatus('integration-status', `Integration failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testMicrophone = async () => {
+            addLog('Testing microphone access...');
+            try {
+                const { PermissionsManager } = await import('./src/distress-detection/services/PermissionsManager.js');
+                const permissionManager = new PermissionsManager();
+                
+                const hasPermission = await permissionManager.requestMicrophonePermission();
+                
+                if (hasPermission) {
+                    addLog('✅ Microphone permission granted');
+                    updateStatus('mic-status', 'Microphone access granted', 'success');
+                } else {
+                    addLog('❌ Microphone permission denied');
+                    updateStatus('mic-status', 'Microphone access denied', 'error');
+                }
+            } catch (error) {
+                addLog(`❌ Microphone test failed: ${error.message}`);
+                updateStatus('mic-status', `Microphone test failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testAIServices = async () => {
+            addLog('Testing AI services...');
+            try {
+                const { DistressDetectionManager } = await import('./src/distress-detection/services/DistressDetectionManager.js');
+                const manager = new DistressDetectionManager();
+                
+                // Test state management
+                manager.onStateChange((state) => {
+                    addLog(`State changed: ${state.status} (listening: ${state.isListening}, analyzing: ${state.isAnalyzing})`);
+                });
+                
+                addLog('✅ AI services initialized');
+                updateStatus('ai-status', 'AI services ready', 'success');
+                
+            } catch (error) {
+                addLog(`❌ AI services test failed: ${error.message}`);
+                updateStatus('ai-status', `AI services failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.simulateDistress = async () => {
+            addLog('Simulating distress detection...');
+            try {
+                const { DistressDetectionManager } = await import('./src/distress-detection/services/DistressDetectionManager.js');
+                const manager = new DistressDetectionManager();
+                
+                // Set up callback to catch simulated distress
+                manager.onDistressDetected((context) => {
+                    addLog(`🚨 SIMULATED DISTRESS: ${context.detectionMethod} detection with ${context.confidence}% confidence`);
+                    if (context.transcript) {
+                        addLog(`   Transcript: "${context.transcript}"`);
+                    }
+                    updateStatus('ai-status', 'Distress simulation successful!', 'success');
+                });
+                
+                // Simulate a distress context
+                const mockContext = {
+                    detectionMethod: 'speech',
+                    confidence: 85,
+                    timestamp: new Date(),
+                    transcript: 'Help me please, I need assistance!'
+                };
+                
+                // Trigger the callback manually for testing
+                manager.onDistressDetected(mockContext);
+                
+            } catch (error) {
+                addLog(`❌ Distress simulation failed: ${error.message}`);
+                updateStatus('ai-status', `Simulation failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testBackendAPI = async () => {
+            addLog('Testing backend API...');
+            try {
+                const response = await fetch('http://localhost:8080/api/companion/shared-with-me', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // Note: This will fail without proper auth token, but we can test the endpoint
+                    }
+                });
+                
+                if (response.status === 401) {
+                    addLog('✅ API endpoint responding (401 expected without auth)');
+                    updateStatus('api-status', 'Backend API responding correctly', 'success');
+                } else if (response.ok) {
+                    const data = await response.json();
+                    addLog(`✅ API call successful, returned ${data.length} sessions`);
+                    updateStatus('api-status', 'Backend API working correctly', 'success');
+                } else {
+                    addLog(`⚠️ API returned status ${response.status}`);
+                    updateStatus('api-status', `API returned status ${response.status}`, 'error');
+                }
+                
+            } catch (error) {
+                addLog(`❌ Backend API test failed: ${error.message}`);
+                updateStatus('api-status', `Backend API failed: ${error.message}`, 'error');
+            }
+        };
+
+        // Auto-run integration test on load
+        window.addEventListener('load', () => {
+            addLog('🚀 Starting integration tests...');
+            testIntegration();
+        });
+    </script>
+</body>
+</html>

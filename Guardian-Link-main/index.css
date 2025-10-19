@@ -276,6 +276,103 @@ body.sos-flash {
 .mark-safe-container { margin-top: 2rem; text-align: center; }
 .mark-safe-container .btn { width: 100%; padding-top: 1rem; padding-bottom: 1rem; font-size: 1.1rem; }
 
+/* AI Distress Monitoring Panel */
+.ai-monitoring-panel { 
+  background-color: var(--bg-tertiary); 
+  border-radius: var(--border-radius-lg); 
+  padding: 1.5rem; 
+  text-align: center; 
+  margin-top: 1.5rem;
+  border: 2px solid transparent;
+  transition: border-color 0.3s ease;
+}
+.ai-monitoring-panel h2 { 
+  margin: 0 0 1rem; 
+  font-size: 1.25rem; 
+  color: var(--text-primary); 
+}
+.ai-status-indicator { 
+  display: flex; 
+  align-items: center; 
+  gap: 1rem; 
+  padding: 1rem; 
+  border-radius: var(--border-radius-md); 
+  margin-bottom: 1rem;
+  transition: background-color 0.3s ease;
+}
+.ai-status-indicator.active { 
+  background-color: color-mix(in srgb, #28a745 10%, var(--bg-tertiary)); 
+  border: 1px solid color-mix(in srgb, #28a745 30%, transparent);
+}
+.ai-status-indicator.inactive { 
+  background-color: color-mix(in srgb, #ffc107 10%, var(--bg-tertiary)); 
+  border: 1px solid color-mix(in srgb, #ffc107 30%, transparent);
+}
+.ai-status-indicator .status-icon { 
+  font-size: 1.5rem; 
+  flex-shrink: 0;
+}
+.ai-status-indicator .status-content { 
+  text-align: left; 
+  flex-grow: 1;
+}
+.ai-status-indicator .status-title { 
+  font-weight: 600; 
+  color: var(--text-primary); 
+  margin-bottom: 0.25rem;
+}
+.ai-status-indicator .status-description { 
+  font-size: 0.9rem; 
+  color: var(--text-secondary);
+}
+.ai-enable-btn { 
+  background-color: #007bff; 
+  color: white; 
+  width: 100%;
+}
+.ai-enable-btn:hover { 
+  background-color: #0056b3; 
+}
+.ai-disable-btn { 
+  background-color: #dc3545; 
+  color: white; 
+  width: 100%;
+}
+.ai-disable-btn:hover { 
+  background-color: #c82333; 
+}
+
+/* Speech Feedback Widget */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.speech-feedback-widget {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* AI Testing Section */
+.ai-testing-section .form-group {
+  margin-bottom: 20px;
+}
+
+.ai-testing-section .btn {
+  width: 100%;
+  margin-top: 5px;
+}
+
+.test-results {
+  font-family: 'Courier New', monospace;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 10px;
+  margin-top: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 /* Form Styles */
 .form-group { margin-bottom: 1.5rem; }
 .form-group p { margin-top: 0; line-height: 1.6; color: var(--text-secondary); }
@@ -895,6 +992,9 @@ body.dark-mode .map-legend {
 .elderly-mode .status-label { font-size: 2.2rem; }
 .elderly-mode .sos-button { width: 220px; height: 220px; }
 .elderly-mode .companion-panel h2 { font-size: 1.8rem; }
+.elderly-mode .ai-monitoring-panel h2 { font-size: 1.8rem; }
+.elderly-mode .ai-status-indicator .status-title { font-size: 1.2rem; }
+.elderly-mode .ai-status-indicator .status-description { font-size: 1.1rem; }
 .elderly-mode .btn, .elderly-mode .form-group input, .elderly-mode .settings-select { font-size: 1.2rem; padding: 1rem 1.2rem; }
 .elderly-mode .form-group label { font-size: 1.1rem; }
 .elderly-mode .nav-item { font-size: 0.8rem; }

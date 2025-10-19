@@ -51,6 +51,7 @@ export class DistressDetectionManager implements IDistressDetectionManager {
 
   private settings: DistressSettings = DEFAULT_DISTRESS_SETTINGS;
   private stateChangeCallbacks: ((state: DistressDetectionState) => void)[] = [];
+  private verificationCallbacks: ((context: DistressContext) => void)[] = [];
 
   // Detection configuration
   private confidenceThreshold = 70; // Minimum confidence for verification
@@ -83,16 +84,28 @@ export class DistressDetectionManager implements IDistressDetectionManager {
       }
 
       // Initialize services based on settings
+      console.log('🔧 Initializing services with settings:', this.settings);
+      
       if (this.settings.speechRecognition.enabled) {
+        console.log('🎤 Initializing speech recognition...');
         await this.speechService.initialize();
+        console.log('🎤 Starting speech listening...');
         this.speechService.startListening();
         this.updateState({ isListening: true });
+        console.log('✅ Speech recognition started');
+      } else {
+        console.log('⚠️ Speech recognition is disabled in settings');
       }
 
       if (this.settings.audioAnalysis.enabled) {
+        console.log('🔊 Initializing audio analysis...');
         await this.audioService.initialize();
+        console.log('🔊 Starting audio analysis...');
         this.audioService.startAnalysis();
         this.updateState({ isAnalyzing: true });
+        console.log('✅ Audio analysis started');
+      } else {
+        console.log('⚠️ Audio analysis is disabled in settings');
       }
 
       this.updateState({ status: 'active' });
@@ -115,6 +128,8 @@ export class DistressDetectionManager implements IDistressDetectionManager {
    */
   stopMonitoring(): void {
     try {
+      console.log('🛑 Stopping all distress monitoring services...');
+      
       // Stop all services
       this.speechService.stopListening();
       this.audioService.stopAnalysis();
@@ -130,7 +145,7 @@ export class DistressDetectionManager implements IDistressDetectionManager {
         errorMessage: undefined
       });
 
-      console.log('Distress detection monitoring stopped');
+      console.log('✅ Distress detection monitoring stopped');
 
     } catch (error) {
       console.error('Error stopping distress detection:', error);
@@ -138,6 +153,31 @@ export class DistressDetectionManager implements IDistressDetectionManager {
         status: 'error', 
         errorMessage: 'Failed to stop monitoring properly' 
       });
+    }
+  }
+
+  /**
+   * Completely destroy all services and clean up resources
+   */
+  destroy(): void {
+    try {
+      console.log('🗑️ Destroying distress detection manager...');
+      
+      this.stopMonitoring();
+      
+      // Destroy services
+      if (this.speechService && typeof this.speechService.destroy === 'function') {
+        this.speechService.destroy();
+      }
+      
+      // Clear callbacks
+      this.stateChangeCallbacks = [];
+      this.verificationCallbacks = [];
+      
+      console.log('✅ Distress detection manager destroyed');
+      
+    } catch (error) {
+      console.error('Error destroying distress detection manager:', error);
     }
   }
 
@@ -233,6 +273,34 @@ export class DistressDetectionManager implements IDistressDetectionManager {
   }
 
   /**
+   * Subscribe to distress detection events (for external verification handling)
+   */
+  onDistressDetected(callback: (context: DistressContext) => void): void {
+    this.verificationCallbacks.push(callback);
+  }
+
+  /**
+   * Unsubscribe from distress detection events
+   */
+  offDistressDetected(callback: (context: DistressContext) => void): void {
+    const index = this.verificationCallbacks.indexOf(callback);
+    if (index > -1) {
+      this.verificationCallbacks.splice(index, 1);
+    }
+  }
+
+  /**
+   * Handle verification result from external verification dialog
+   */
+  public handleExternalVerificationResult(
+    result: VerificationResult, 
+    shouldTriggerSOS: boolean, 
+    context: DistressContext
+  ): void {
+    this.handleVerificationResult(result, shouldTriggerSOS, context);
+  }
+
+  /**
    * Setup callbacks for all services
    */
   private setupServiceCallbacks(): void {
@@ -262,18 +330,31 @@ export class DistressDetectionManager implements IDistressDetectionManager {
    */
   private async handleSpeechResult(transcript: string, confidence: number): void {
     try {
+      console.log(`🎤 Speech detected: "${transcript}" (confidence: ${confidence}%)`);
+      
       // Classify the speech for distress content
       const analysis: DistressAnalysis = await this.classificationService.analyzeText(transcript);
+      
+      console.log(`🧠 Analysis result:`, {
+        isDistress: analysis.isDistress,
+        confidence: analysis.confidence,
+        detectedPhrases: analysis.detectedPhrases,
+        sentiment: analysis.sentiment
+      });
       
       if (analysis.isDistress) {
         // Combine speech confidence with classification confidence
         const combinedConfidence = Math.min(100, (confidence + analysis.confidence) / 2);
+        
+        console.log(`🚨 DISTRESS DETECTED! Combined confidence: ${combinedConfidence}%`);
         
         this.handleDistressDetected('speech', combinedConfidence, {
           transcript,
           analysis,
           detectedPhrases: analysis.detectedPhrases
         });
+      } else {
+        console.log(`✅ No distress detected in: "${transcript}"`);
       }
     } catch (error) {
       console.error('Error processing speech result:', error);
@@ -336,6 +417,13 @@ export class DistressDetectionManager implements IDistressDetectionManager {
   private triggerVerification(context: DistressContext): void {
     console.log(`Triggering verification for ${context.detectionMethod} detection with ${context.confidence}% confidence`);
 
+    // If external callbacks are registered, use them instead of internal verification
+    if (this.verificationCallbacks.length > 0) {
+      this.verificationCallbacks.forEach(callback => callback(context));
+      return;
+    }
+
+    // Fallback to internal verification service
     this.verificationService.startVerification(
       context,
       this.settings.verification.timeoutSeconds,

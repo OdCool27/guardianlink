@@ -51,7 +51,7 @@ class LocalNLPProcessor {
   ];
 
   private customPhrases: string[] = [];
-  private confidenceThreshold: number = 70;
+  private confidenceThreshold: number = 50; // Lower threshold for better detection
 
   constructor() {
     // Initialize with default phrases
@@ -61,12 +61,14 @@ class LocalNLPProcessor {
    * Analyze text using regex patterns and word matching
    */
   async analyzeText(text: string): Promise<DistressAnalysis> {
+    console.log(`🔍 Analyzing text: "${text}"`);
     const normalizedText = text.toLowerCase().trim();
     const detectedPhrases: string[] = [];
     let maxConfidence = 0;
 
     // Combine default and custom phrases
     const allPhrases = [...this.distressPhrases, ...this.customPhrases];
+    console.log(`📝 Checking against ${allPhrases.length} distress phrases`);
 
     // Check for exact phrase matches
     for (const phrase of allPhrases) {
@@ -75,6 +77,7 @@ class LocalNLPProcessor {
         // Higher confidence for longer, more specific phrases
         const phraseConfidence = Math.min(95, 60 + (phrase.length * 2));
         maxConfidence = Math.max(maxConfidence, phraseConfidence);
+        console.log(`✅ Found distress phrase: "${phrase}" (confidence: ${phraseConfidence}%)`);
       }
     }
 
@@ -116,6 +119,9 @@ class LocalNLPProcessor {
     }
 
     const isDistress = maxConfidence >= this.confidenceThreshold;
+
+    console.log(`📊 Analysis complete: isDistress=${isDistress}, confidence=${maxConfidence}%, threshold=${this.confidenceThreshold}%`);
+    console.log(`🏷️ Detected phrases: [${detectedPhrases.join(', ')}]`);
 
     return {
       isDistress,

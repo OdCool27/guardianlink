@@ -254,6 +254,11 @@ export const companionAPI = {
     return apiRequest('/api/companion/active-sessions', { method: 'GET' });
   },
 
+  // Get current user's active session
+  getActiveSession: async () => {
+    return apiRequest('/api/companion/my-active-session', { method: 'GET' });
+  },
+
   // Get sessions shared with me (as a companion)
   getSharedWithMe: async () => {
     return apiRequest('/api/companion/shared-with-me', { method: 'GET' });

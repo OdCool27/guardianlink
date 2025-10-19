@@ -8,6 +8,11 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import api, { authAPI, userAPI, contactsAPI, companionAPI, sosAPI, historyAPI, storage } from './api';
 
+// AI Distress Detection Imports
+import { DistressDetectionManager } from './src/distress-detection/services/DistressDetectionManager';
+import { VerificationDialog } from './src/distress-detection/components/VerificationDialog';
+import { PermissionsManager } from './src/distress-detection/services/PermissionsManager';
+
 // 1. --- LOCALIZATION SETUP ---
 const translations = {
     en: {
@@ -94,7 +99,8 @@ const translations = {
         },
         history: {
             title: "Alert History",
-            description: "Recent alerts and activity logs will be shown here."
+            description: "Recent alerts and activity logs will be shown here.",
+            noHistory: "No alert history yet"
         },
         camera: {
             error: "Could not access the camera. Please check permissions.",
@@ -160,6 +166,13 @@ const translations = {
             map: "Map",
             history: "History",
             profile: "Profile"
+        },
+        map: { 
+            title: "Live Location Map", 
+            description: "View your location and active companion sessions on the map.",
+            you: "You",
+            companions: "Companions", 
+            sosAlerts: "SOS Alerts"
         }
     },
     es: {
@@ -169,13 +182,20 @@ const translations = {
         companionModal: { title: "Iniciar Modo Compañero", close: "Cerrar", description: "Selecciona contactos para compartir tu ubicación en vivo y establece una duración.", shareWith: "Compartir con:", noContacts: "Por favor, añade un contacto de emergencia primero.", duration: "Duración:", minutes: "min", hour: "h", cancel: "Cancelar", startSharing: "Empezar a Compartir", alertNoContact: "Por favor, selecciona al menos un contacto." },
         home: { elderlyMode: "Modo Mayor", sos: "SOS", cancel: "CANCELAR", statusSafe: "Estás a Salvo", statusActive: "EMERGENCIA ACTIVA", companionMode: "Modo Compañero", status: "Estado:", active: "Activo", inactive: "Inactivo", sharingWith: "Compartiendo ubicación con:", mapLoading: "Cargando mapa...", stopSharing: "Dejar de Compartir", markSafe: "Marcar como Seguro", slideToShareLocation: "Desliza para Compartir Ubicación", safewordPrompt: "Ingresa tu palabra de seguridad para desactivar SOS", safewordPlaceholder: "Palabra de seguridad", confirmSafe: "Confirmar Seguro", incorrectSafeword: "Palabra de seguridad incorrecta. Inténtalo de nuevo.", safewordRequired: "Se requiere palabra de seguridad para desactivar SOS.", yourLocation: "Tu Ubicación", tapToExpand: "Toca para expandir", gettingLocation: "Obteniendo ubicación...", back: "Atrás", coordinates: "Coordenadas" },
         contacts: { title: "Contactos de Emergencia", description: "Administra las personas que serán notificadas en una emergencia.", addContact: "Añadir Contacto", contactNum: "Contacto #", remove: "Eliminar Contacto", fullName: "Nombre Completo", phone: "Número de Teléfono", email: "Correo Electrónico" },
-        history: { title: "Historial de Alertas", description: "Las alertas y registros de actividad recientes se mostrarán aquí." },
+        history: { title: "Historial de Alertas", description: "Las alertas y registros de actividad recientes se mostrarán aquí.", noHistory: "Aún no hay historial de alertas" },
         camera: { error: "No se pudo acceder a la cámara. Revisa los permisos.", cancel: "Cancelar", capture: "Capturar" },
         shareModal: { title: "Compartir Perfil", description: "Comparte un enlace a tu perfil con otros.", copy: "Copiar", copied: "¡Copiado!", shareVia: "Compartir vía...", error: "La API de Compartir Web no es compatible con tu navegador." },
         statusModal: { title: "Editar Estado", emojiLabel: "Emoji", textLabel: "Estado", save: "Guardar", cancel: "Cancelar" },
         profile: { settings: "Ajustes", share: "Compartir Perfil", setStatus: "Define tu estado", viewPicture: "Ver foto de perfil" },
         settings: { title: "Ajustes", back: "Atrás", profile: "Perfil", upload: "Subir", camera: "Cámara", username: "Usuario", email: "Correo Electrónico", safeword: "Palabra Clave de Activación por Voz", safewordPlaceholder: "ej. 'Ángel Guardián'", changePass: "Cambiar Contraseña", currentPass: "Contraseña Actual", newPass: "Nueva Contraseña", confirmPass: "Confirmar Nueva Contraseña", appearance: "Apariencia", light: "Claro", dark: "Oscuro", automatic: "Automático", language: "Idioma de la App", notifications: "Notificaciones", sosAlerts: "Alertas SOS", sosAlertsDesc: "Recibir alertas en situaciones de emergencia.", companionUpdates: "Actualizaciones Modo Compañero", companionUpdatesDesc: "Recibir notificaciones cuando el seguimiento en vivo comienza o termina.", statusUpdates: "Actualizaciones de Estado", statusUpdatesDesc: "Alertas para “Usuario Marcado como Seguro” o actividad del sistema.", save: "Guardar Ajustes", signOut: "Cerrar Sesión", signOutConfirm: "¿Seguro que quieres cerrar sesión?", saveSuccess: "¡Ajustes guardados!", langChanged: "Idioma cambiado a " },
-        nav: { home: "Inicio", contacts: "Contactos", map: "Mapa", history: "Historial", profile: "Perfil" }
+        nav: { home: "Inicio", contacts: "Contactos", map: "Mapa", history: "Historial", profile: "Perfil" },
+        map: { 
+            title: "Mapa de Ubicación en Vivo", 
+            description: "Ve tu ubicación y sesiones de compañero activas en el mapa.",
+            you: "Tú",
+            companions: "Compañeros", 
+            sosAlerts: "Alertas SOS"
+        }
     },
     fr: {
         appName: "GuardianLink",
@@ -184,13 +204,20 @@ const translations = {
         companionModal: { title: "Démarrer le Mode Compagnon", close: "Fermer", description: "Sélectionnez des contacts pour partager votre position en direct et définissez une durée.", shareWith: "Partager avec :", noContacts: "Veuillez d'abord ajouter un contact d'urgence.", duration: "Durée :", minutes: "min", hour: "h", cancel: "Annuler", startSharing: "Commencer le Partage", alertNoContact: "Veuillez sélectionner au moins un contact." },
         home: { elderlyMode: "Mode Senior", sos: "SOS", cancel: "ANNULER", statusSafe: "Vous êtes en Sécurité", statusActive: "URGENCE ACTIVE", companionMode: "Mode Compagnon", status: "Statut :", active: "Actif", inactive: "Inactif", sharingWith: "Partage de la position avec :", mapLoading: "Chargement de la carte...", stopSharing: "Arrêter le Partage", markSafe: "Me Marquer comme Sûr", slideToShareLocation: "Glisser pour Partager la Position", safewordPrompt: "Entrez votre mot de sécurité pour désactiver SOS", safewordPlaceholder: "Mot de sécurité", confirmSafe: "Confirmer Sûr", incorrectSafeword: "Mot de sécurité incorrect. Veuillez réessayer.", safewordRequired: "Le mot de sécurité est requis pour désactiver SOS.", yourLocation: "Votre Position", tapToExpand: "Appuyez pour agrandir", gettingLocation: "Obtention de la position...", back: "Retour", coordinates: "Coordonnées" },
         contacts: { title: "Contacts d'Urgence", description: "Gérez les personnes qui seront notifiées en cas d'urgence.", addContact: "Ajouter un Contact", contactNum: "Contact #", remove: "Supprimer le Contact", fullName: "Nom Complet", phone: "Numéro de Téléphone", email: "Adresse E-mail" },
-        history: { title: "Historique des Alertes", description: "Les alertes récentes et les journaux d'activité seront affichés ici." },
+        history: { title: "Historique des Alertes", description: "Les alertes récentes et les journaux d'activité seront affichés ici.", noHistory: "Aucun historique d'alerte pour le moment" },
         camera: { error: "Impossible d'accéder à la caméra. Veuillez vérifier les autorisations.", cancel: "Annuler", capture: "Capturer" },
         shareModal: { title: "Partager le Profil", description: "Partagez un lien vers votre profil.", copy: "Copier", copied: "Copié !", shareVia: "Partager via...", error: "L'API de partage Web n'est pas prise en charge par votre navigateur." },
         statusModal: { title: "Modifier le Statut", emojiLabel: "Emoji", textLabel: "Statut", save: "Enregistrer", cancel: "Annuler" },
         profile: { settings: "Paramètres", share: "Partager le Profil", setStatus: "Définir votre statut", viewPicture: "Voir la photo de profil" },
         settings: { title: "Paramètres", back: "Retour", profile: "Profil", upload: "Télécharger", camera: "Caméra", username: "Nom d'utilisateur", email: "Adresse E-mail", safeword: "Mot de Sécurité pour Activation Vocale", safewordPlaceholder: "ex. 'Ange Gardien'", changePass: "Changer de Mot de Passe", currentPass: "Mot de Passe Actuel", newPass: "Nouveau Mot de Passe", confirmPass: "Confirmer le Nouveau Mot de Passe", appearance: "Apparence", light: "Clair", dark: "Sombre", automatic: "Automatique", language: "Langue de l'App", notifications: "Notifications", sosAlerts: "Alertes SOS", sosAlertsDesc: "Recevoir des alertes en cas d'urgence.", companionUpdates: "Mises à Jour Mode Compagnon", companionUpdatesDesc: "Être notifié lorsque le suivi en direct commence ou se termine.", statusUpdates: "Mises à Jour de Statut", statusUpdatesDesc: "Alertes pour “Utilisateur Marqué comme Sûr” ou activité du système.", save: "Enregistrer", signOut: "Se Déconnecter", signOutConfirm: "Êtes-vous sûr de vouloir vous déconnecter ?", saveSuccess: "Paramètres enregistrés !", langChanged: "Langue changée en " },
-        nav: { home: "Accueil", contacts: "Contacts", map: "Carte", history: "Historique", profile: "Profil" }
+        nav: { home: "Accueil", contacts: "Contacts", map: "Carte", history: "Historique", profile: "Profil" },
+        map: { 
+            title: "Carte de Localisation en Direct", 
+            description: "Visualisez votre position et les sessions de compagnon actives sur la carte.",
+            you: "Vous",
+            companions: "Compagnons", 
+            sosAlerts: "Alertes SOS"
+        }
     },
     pt: {
         appName: "GuardianLink",
@@ -199,13 +226,20 @@ const translations = {
         companionModal: { title: "Iniciar Modo Companheiro", close: "Fechar", description: "Selecione contatos para compartilhar sua localização ao vivo e defina una duração.", shareWith: "Compartilhar com:", noContacts: "Por favor, adicione um contato de emergência primeiro.", duration: "Duração:", minutes: "min", hour: "h", cancel: "Cancelar", startSharing: "Começar a Compartilhar", alertNoContact: "Por favor, selecione pelo menos um contato." },
         home: { elderlyMode: "Modo Idoso", sos: "SOS", cancel: "CANCELAR", statusSafe: "Você está Seguro", statusActive: "EMERGÊNCIA ATIVA", companionMode: "Modo Companheiro", status: "Status:", active: "Ativo", inactive: "Inativo", sharingWith: "Compartilhando localização com:", mapLoading: "Carregando mapa...", stopSharing: "Parar de Compartilhar", markSafe: "Marcar como Seguro", slideToShareLocation: "Deslize para Compartilhar Localização", safewordPrompt: "Digite sua palavra de segurança para desativar SOS", safewordPlaceholder: "Palavra de segurança", confirmSafe: "Confirmar Seguro", incorrectSafeword: "Palavra de segurança incorreta. Tente novamente.", safewordRequired: "Palavra de segurança é necessária para desativar SOS.", yourLocation: "Sua Localização", tapToExpand: "Toque para expandir", gettingLocation: "Obtendo localização...", back: "Voltar", coordinates: "Coordenadas" },
         contacts: { title: "Contatos de Emergência", description: "Gerencie as pessoas que serão notificadas em uma emergência.", addContact: "Adicionar Contato", contactNum: "Contato #", remove: "Remover Contato", fullName: "Nome Completo", phone: "Número de Telefone", email: "Endereço de E-mail" },
-        history: { title: "Histórico de Alertas", description: "Alertas recentes e registros de atividades serão mostrados aqui." },
+        history: { title: "Histórico de Alertas", description: "Alertas recentes e registros de atividades serão mostrados aqui.", noHistory: "Ainda não há histórico de alertas" },
         camera: { error: "Não foi possível acessar a câmera. Verifique as permissões.", cancel: "Cancelar", capture: "Capturar" },
         shareModal: { title: "Compartilhar Perfil", description: "Compartilhe um link para o seu perfil.", copy: "Copiar", copied: "Copiado!", shareVia: "Compartilhar via...", error: "A API de Compartilhamento Web não é suportada no seu navegador." },
         statusModal: { title: "Editar Status", emojiLabel: "Emoji", textLabel: "Status", save: "Salvar", cancel: "Cancelar" },
         profile: { settings: "Configurações", share: "Compartilhar Perfil", setStatus: "Defina seu status", viewPicture: "Ver foto do perfil" },
         settings: { title: "Configurações", back: "Voltar", profile: "Perfil", upload: "Carregar", camera: "Câmera", username: "Nome de usuário", email: "Endereço de E-mail", safeword: "Palavra de Segurança para Ativação por Voz", safewordPlaceholder: "ex. 'Anjo da Guarda'", changePass: "Alterar Senha", currentPass: "Senha Atual", newPass: "Nova Senha", confirmPass: "Confirmar Nova Senha", appearance: "Aparência", light: "Claro", dark: "Escuro", automatic: "Automático", language: "Idioma do App", notifications: "Notificações", sosAlerts: "Alertas SOS", sosAlertsDesc: "Receber alertas em situações de emergência.", companionUpdates: "Atualizações do Modo Companheiro", companionUpdatesDesc: "Ser notificado quando o rastreamento ao vivo começa ou termina.", statusUpdates: "Atualizações de Status", statusUpdatesDesc: "Alertas para “Usuário Marcado como Seguro” ou atividade do sistema.", save: "Salvar", signOut: "Sair", signOutConfirm: "Tem certeza de que deseja sair?", saveSuccess: "Configurações salvas!", langChanged: "Idioma alterado para " },
-        nav: { home: "Início", contacts: "Contatos", map: "Mapa", history: "Histórico", profile: "Perfil" }
+        nav: { home: "Início", contacts: "Contatos", map: "Mapa", history: "Histórico", profile: "Perfil" },
+        map: { 
+            title: "Mapa de Localização ao Vivo", 
+            description: "Veja sua localização e sessões de companheiro ativas no mapa.",
+            you: "Você",
+            companions: "Companheiros", 
+            sosAlerts: "Alertas SOS"
+        }
     },
     hi: {
         appName: "गार्डियनलिंक",
@@ -214,13 +248,20 @@ const translations = {
         companionModal: { title: "साथी मोड शुरू करें", close: "बंद करें", description: "लाइव लोकेशन साझा करने के लिए संपर्क चुनें और अवधि निर्धारित करें।", shareWith: "इनके साथ साझा करें:", noContacts: "कृपया पहले एक आपातकालीन संपर्क जोड़ें।", duration: "अवधि:", minutes: "मिनट", hour: "घंटा", cancel: "रद्द करें", startSharing: "साझा करना शुरू करें", alertNoContact: "कृपया कम से कम एक संपर्क चुनें।" },
         home: { elderlyMode: "बुजुर्ग मोड", sos: "SOS", cancel: "रद्द करें", statusSafe: "आप सुरक्षित हैं", statusActive: "आपातकाल सक्रिय", companionMode: "साथी मोड", status: "स्थिति:", active: "सक्रिय", inactive: "निष्क्रिय", sharingWith: "इनके साथ लोकेशन साझा हो रही है:", mapLoading: "नक्शा लोड हो रहा है...", stopSharing: "साझा करना बंद करें", markSafe: "मुझे सुरक्षित चिह्नित करें", slideToShareLocation: "स्थान साझा करने के लिए स्लाइड करें", safewordPrompt: "SOS निष्क्रिय करने के लिए अपना सुरक्षा शब्द दर्ज करें", safewordPlaceholder: "सुरक्षा शब्द", confirmSafe: "सुरक्षित की पुष्टि करें", incorrectSafeword: "गलत सुरक्षा शब्द। कृपया पुनः प्रयास करें।", safewordRequired: "SOS निष्क्रिय करने के लिए सुरक्षा शब्द आवश्यक है।", yourLocation: "आपका स्थान", tapToExpand: "विस्तार करने के लिए टैप करें", gettingLocation: "स्थान प्राप्त किया जा रहा है...", back: "वापस", coordinates: "निर्देशांक" },
         contacts: { title: "आपातकालीन संपर्क", description: "उन लोगों का प्रबंधन करें जिन्हें आपात स्थिति में सूचित किया जाएगा।", addContact: "संपर्क जोड़ें", contactNum: "संपर्क #", remove: "संपर्क हटाएं", fullName: "पूरा नाम", phone: "फोन नंबर", email: "ईमेल पता" },
-        history: { title: "अलर्ट इतिहास", description: "हाल के अलर्ट और गतिविधि लॉग यहां दिखाए जाएंगे।" },
+        history: { title: "अलर्ट इतिहास", description: "हाल के अलर्ट और गतिविधि लॉग यहां दिखाए जाएंगे।", noHistory: "अभी तक कोई अलर्ट इतिहास नहीं" },
         camera: { error: "कैमरे तक नहीं पहुंच सका। कृपया अनुमतियों की जांच करें।", cancel: "रद्द करें", capture: "कैप्चर करें" },
         shareModal: { title: "प्रोफ़ाइल साझा करें", description: "दूसरों के साथ अपनी प्रोफ़ाइल का लिंक साझा करें।", copy: "कॉपी करें", copied: "कॉपी किया गया!", shareVia: "इसके माध्यम से साझा करें...", error: "वेब शेयर एपीआई आपके ब्राउज़र में समर्थित नहीं है।" },
         statusModal: { title: "स्थिति संपादित करें", emojiLabel: "इमोजी", textLabel: "स्थिति", save: "सहेजें", cancel: "रद्द करें" },
         profile: { settings: "सेटिंग्स", share: "प्रोफ़ाइल साझा करें", setStatus: "अपनी स्थिति सेट करें", viewPicture: "प्रोफ़ाइल चित्र देखें" },
         settings: { title: "सेटिंग्स", back: "वापस", profile: "प्रोफ़ाइल", upload: "अपलोड करें", camera: "कैमरा", username: "उपयोगकर्ता नाम", email: "ईमेल पता", safeword: "वॉयस एक्टिवेशन सेफवर्ड", safewordPlaceholder: "जैसे, 'गार्जियन एंजेल'", changePass: "पासवर्ड बदलें", currentPass: "वर्तमान पासवर्ड", newPass: "नया पासवर्ड", confirmPass: "नए पासवर्ड की पुष्टि करें", appearance: "दिखावट", light: "लाइट", dark: "डार्क", automatic: "स्वचालित", language: "ऐप की भाषा", notifications: "सूचनाएं", sosAlerts: "SOS अलर्ट", sosAlertsDesc: "आपातकालीन स्थितियों के लिए अलर्ट प्राप्त करें।", companionUpdates: "साथी मोड अपडेट", companionUpdatesDesc: "लाइव ट्रैकिंग शुरू या समाप्त होने पर सूचित करें।", statusUpdates: "स्थिति अपडेट", statusUpdatesDesc: "'उपयोगकर्ता सुरक्षित चिह्नित' या सिस्टम गतिविधि के लिए अलर्ट।", save: "सेटिंग्स सहेजें", signOut: "साइन आउट करें", signOutConfirm: "क्या आप वाकई साइन आउट करना चाहते हैं?", saveSuccess: "सेटिंग्स सहेजी गईं!", langChanged: "भाषा इसमें बदल गई है " },
-        nav: { home: "होम", contacts: "संपर्क", map: "नक्शा", history: "इतिहास", profile: "प्रोफ़ाइल" }
+        nav: { home: "होम", contacts: "संपर्क", map: "नक्शा", history: "इतिहास", profile: "प्रोफ़ाइल" },
+        map: { 
+            title: "लाइव लोकेशन मैप", 
+            description: "मैप पर अपना स्थान और सक्रिय साथी सत्र देखें।",
+            you: "आप",
+            companions: "साथी", 
+            sosAlerts: "SOS अलर्ट"
+        }
     },
     zh: {
         appName: "守护链接",
@@ -229,13 +270,20 @@ const translations = {
         companionModal: { title: "开启陪伴模式", close: "关闭", description: "选择联系人分享您的实时位置并设置持续时间。", shareWith: "分享给：", noContacts: "请先添加紧急联系人。", duration: "持续时间：", minutes: "分钟", hour: "小时", cancel: "取消", startSharing: "开始分享", alertNoContact: "请至少选择一个联系人。" },
         home: { elderlyMode: "长者模式", sos: "SOS", cancel: "取消", statusSafe: "您是安全的", statusActive: "紧急情况激活", companionMode: "陪伴模式", status: "状态：", active: "活动中", inactive: "未激活", sharingWith: "正在与以下用户分享位置：", mapLoading: "地图加载中...", stopSharing: "停止分享", markSafe: "标记我为安全", slideToShareLocation: "滑动以分享位置", safewordPrompt: "输入您的安全词以停用SOS", safewordPlaceholder: "安全词", confirmSafe: "确认安全", incorrectSafeword: "安全词不正确。请重试。", safewordRequired: "停用SOS需要安全词。", yourLocation: "您的位置", tapToExpand: "点击以展开", gettingLocation: "正在获取位置...", back: "返回", coordinates: "坐标" },
         contacts: { title: "紧急联系人", description: "管理在紧急情况下将收到通知的人员。", addContact: "添加联系人", contactNum: "联系人 #", remove: "移除联系人", fullName: "全名", phone: "电话号码", email: "电子邮件地址" },
-        history: { title: "警报历史", description: "最近的警报和活动日志将在此处显示。" },
+        history: { title: "警报历史", description: "最近的警报和活动日志将在此处显示。", noHistory: "暂无警报历史" },
         camera: { error: "无法访问相机。请检查权限。", cancel: "取消", capture: "拍摄" },
         shareModal: { title: "分享个人资料", description: "与他人分享您的个人资料链接。", copy: "复制", copied: "已复制！", shareVia: "通过...分享", error: "您的浏览器不支持Web Share API。" },
         statusModal: { title: "编辑状态", emojiLabel: "表情符号", textLabel: "状态", save: "保存", cancel: "取消" },
         profile: { settings: "设置", share: "分享个人资料", setStatus: "设置您的状态", viewPicture: "查看个人资料图片" },
         settings: { title: "设置", back: "返回", profile: "个人资料", upload: "上传", camera: "相机", username: "用户名", email: "电子邮件地址", safeword: "语音激活安全词", safewordPlaceholder: "例如，“守护天使”", changePass: "更改密码", currentPass: "当前密码", newPass: "新密码", confirmPass: "确认新密码", appearance: "外观", light: "浅色", dark: "深色", automatic: "自动", language: "应用语言", notifications: "通知", sosAlerts: "SOS 警报", sosAlertsDesc: "接收紧急情况警报。", companionUpdates: "陪伴模式更新", companionUpdatesDesc: "在实时跟踪开始或结束时收到通知。", statusUpdates: "状态更新", statusUpdatesDesc: "“用户标记为安全”或系统活动的警报。", save: "保存设置", signOut: "退出登录", signOutConfirm: "您确定要退出登录吗？", saveSuccess: "设置已保存！", langChanged: "语言已更改为 " },
-        nav: { home: "主页", contacts: "联系人", map: "地图", history: "历史", profile: "个人资料" }
+        nav: { home: "主页", contacts: "联系人", map: "地图", history: "历史", profile: "个人资料" },
+        map: { 
+            title: "实时位置地图", 
+            description: "在地图上查看您的位置和活跃的陪伴会话。",
+            you: "您",
+            companions: "陪伴者", 
+            sosAlerts: "SOS 警报"
+        }
     },
     ar: {
         appName: "جارديان لينك",
@@ -244,13 +292,20 @@ const translations = {
         companionModal: { title: "بدء وضع الرفيق", close: "إغلاق", description: "حدد جهات اتصال لمشاركة موقعك المباشر معها وتعيين مدة للجلسة.", shareWith: "مشاركة مع:", noContacts: "يرجى إضافة جهة اتصال للطوارئ أولاً.", duration: "المدة:", minutes: "دقيقة", hour: "ساعة", cancel: "إلغاء", startSharing: "بدء المشاركة", alertNoContact: "يرجى تحديد جهة اتصال واحدة على الأقل." },
         home: { elderlyMode: "وضع كبار السن", sos: "SOS", cancel: "إلغاء", statusSafe: "أنت آمن", statusActive: "الطوارئ نشطة", companionMode: "وضع الرفيق", status: "الحالة:", active: "نشط", inactive: "غير نشط", sharingWith: "تتم مشاركة الموقع مع:", mapLoading: "جارٍ تحميل الخريطة...", stopSharing: "إيقاف المشاركة", markSafe: "تحديد أنني آمن", slideToShareLocation: "اسحب لمشاركة الموقع", safewordPrompt: "أدخل كلمة الأمان الخاصة بك لإلغاء تنشيط SOS", safewordPlaceholder: "كلمة الأمان", confirmSafe: "تأكيد الأمان", incorrectSafeword: "كلمة أمان غير صحيحة. يرجى المحاولة مرة أخرى.", safewordRequired: "كلمة الأمان مطلوبة لإلغاء تنشيط SOS.", yourLocation: "موقعك", tapToExpand: "انقر للتوسيع", gettingLocation: "جارٍ الحصول على الموقع...", back: "رجوع", coordinates: "الإحداثيات" },
         contacts: { title: "جهات اتصال الطوارئ", description: "إدارة الأشخاص الذين سيتم إخطارهم في حالات الطوارئ.", addContact: "إضافة جهة اتصال", contactNum: "جهة اتصال #", remove: "إزالة جهة اتصال", fullName: "الاسم الكامل", phone: "رقم الهاتف", email: "البريد الإلكتروني" },
-        history: { title: "سجل التنبيهات", description: "سيتم عرض التنبيهات الأخيرة وسجلات النشاط هنا." },
+        history: { title: "سجل التنبيهات", description: "سيتم عرض التنبيهات الأخيرة وسجلات النشاط هنا.", noHistory: "لا يوجد سجل تنبيهات حتى الآن" },
         camera: { error: "تعذر الوصول إلى الكاميرا. يرجى التحقق من الأذونات.", cancel: "إلغاء", capture: "التقاط" },
         shareModal: { title: "مشاركة الملف الشخصي", description: "شارك رابط ملفك الشخصي مع الآخرين.", copy: "نسخ", copied: "تم النسخ!", shareVia: "مشاركة عبر...", error: "واجهة برمجة تطبيقات المشاركة على الويب غير مدعومة في متصفحك." },
         statusModal: { title: "تعديل الحالة", emojiLabel: "رمز تعبيري", textLabel: "الحالة", save: "حفظ", cancel: "إلغاء" },
         profile: { settings: "الإعدادات", share: "مشاركة الملف الشخصي", setStatus: "عيّن حالتك", viewPicture: "عرض صورة الملف الشخصي" },
         settings: { title: "الإعدادات", back: "رجوع", profile: "الملف الشخصي", upload: "تحميل", camera: "الكاميرا", username: "اسم المستخدم", email: "البريد الإلكتروني", safeword: "كلمة الأمان للتفعيل الصوتي", safewordPlaceholder: "مثال: 'الملاك الحارس'", changePass: "تغيير كلمة المرور", currentPass: "كلمة المرور الحالية", newPass: "كلمة المرور الجديدة", confirmPass: "تأكيد كلمة المرور الجديدة", appearance: "المظهر", light: "فاتح", dark: "داكن", automatic: "تلقائي", language: "لغة التطبيق", notifications: "الإشعارات", sosAlerts: "تنبيهات SOS", sosAlertsDesc: "استقبال تنبيهات لحالات الطوارئ.", companionUpdates: "تحديثات وضع الرفيق", companionUpdatesDesc: "الحصول على إشعار عند بدء أو انتهاء التتبع المباشر.", statusUpdates: "تحديثات الحالة", statusUpdatesDesc: "تنبيهات لـ 'تم تحديد المستخدم كآمن' أو نشاط النظام.", save: "حفظ الإعدادات", signOut: "تسجيل الخروج", signOutConfirm: "هل أنت متأكد أنك تريد تسجيل الخروج؟", saveSuccess: "تم حفظ الإعدادات!", langChanged: "تم تغيير اللغة إلى " },
-        nav: { home: "الرئيسية", contacts: "جهات الاتصال", map: "الخريطة", history: "السجل", profile: "الملف الشخصي" }
+        nav: { home: "الرئيسية", contacts: "جهات الاتصال", map: "الخريطة", history: "السجل", profile: "الملف الشخصي" },
+        map: { 
+            title: "خريطة الموقع المباشر", 
+            description: "اعرض موقعك وجلسات الرفيق النشطة على الخريطة.",
+            you: "أنت",
+            companions: "الرفاق", 
+            sosAlerts: "تنبيهات SOS"
+        }
     }
 };
 
@@ -935,7 +990,12 @@ const HomeScreen = ({
   currentPosition,
   stopCompanionMode,
   onOpenCompanionModal,
-  onExpandMap
+  onExpandMap,
+  // AI Distress Detection props
+  isDistressMonitoring,
+  microphonePermission,
+  initializeDistressDetection,
+  stopDistressDetection
 }) => {
   const { t } = useLocalization();
   
@@ -1040,6 +1100,80 @@ const HomeScreen = ({
                 <div className="map-placeholder">{t('home.mapLoading')}</div>
             )}
              <button type="button" className="btn btn-secondary" onClick={stopCompanionMode}>{t('home.stopSharing')}</button>
+          </div>
+        )}
+      </div>
+
+      {/* AI Distress Monitoring Status */}
+      <div className="ai-monitoring-panel">
+        <h2>🤖 AI Guardian</h2>
+        <div className={`ai-status-indicator ${isDistressMonitoring ? 'active' : 'inactive'}`}>
+          <div className="status-icon">
+            {isDistressMonitoring ? '🎤' : '⚠️'}
+          </div>
+          <div className="status-content">
+            <div className="status-title">
+              {isDistressMonitoring ? 'AI Guardian Active' : 'AI Guardian Inactive'}
+            </div>
+            <div className="status-description">
+              {isDistressMonitoring 
+                ? 'Listening for distress signals...' 
+                : microphonePermission === 'denied' 
+                  ? 'Microphone access required'
+                  : 'Click to activate AI monitoring'
+              }
+            </div>
+          </div>
+        </div>
+        
+        {!isDistressMonitoring && (
+          <button
+            className="btn btn-primary ai-enable-btn"
+            onClick={initializeDistressDetection}
+            disabled={isSosActive}
+          >
+            🎤 Enable AI Guardian
+          </button>
+        )}
+        
+        {isDistressMonitoring && (
+          <div>
+            <button
+              className="btn btn-secondary ai-disable-btn"
+              onClick={stopDistressDetection}
+            >
+              🛑 Stop AI Guardian
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                console.log('🧪 Testing distress detection with "help me"');
+                if (distressManager) {
+                  // Simulate a distress detection for testing
+                  const testContext = {
+                    detectionMethod: 'speech',
+                    confidence: 85,
+                    timestamp: new Date(),
+                    transcript: 'help me please'
+                  };
+                  
+                  setVerificationData({
+                    detectionSource: testContext.detectionMethod,
+                    confidence: testContext.confidence,
+                    transcript: testContext.transcript,
+                    audioMetrics: null,
+                    timestamp: testContext.timestamp,
+                    context: testContext
+                  });
+                  
+                  setShowVerificationDialog(true);
+                  showToast('🧪 Test distress detection triggered');
+                }
+              }}
+              style={{ marginTop: '5px' }}
+            >
+              🧪 Test Detection
+            </button>
           </div>
         )}
       </div>
@@ -1503,6 +1637,63 @@ const SettingsScreen = ({
                 </div>
 
                 <div className="settings-section">
+                    <h2>🤖 AI Guardian Testing</h2>
+                    <div className="ai-testing-section">
+                        <div className="form-group">
+                            <label>Microphone Test</label>
+                            <p className="setting-description">Test if your microphone is working properly</p>
+                            <button 
+                                type="button" 
+                                className="btn btn-secondary"
+                                onClick={() => window.testMicrophone && window.testMicrophone()}
+                            >
+                                🎤 Test Microphone
+                            </button>
+                        </div>
+                        
+                        <div className="form-group">
+                            <label>Speech Recognition Test</label>
+                            <p className="setting-description">Test speech-to-text conversion and see what the AI hears</p>
+                            <button 
+                                type="button" 
+                                className="btn btn-secondary"
+                                onClick={() => window.testSpeechRecognition && window.testSpeechRecognition()}
+                            >
+                                🗣️ Test Speech Recognition
+                            </button>
+                        </div>
+                        
+                        <div className="form-group">
+                            <label>Distress Detection Test</label>
+                            <p className="setting-description">Test if the AI can detect distress phrases</p>
+                            <button 
+                                type="button" 
+                                className="btn btn-secondary"
+                                onClick={() => window.testDistressDetection && window.testDistressDetection()}
+                            >
+                                🚨 Test Distress Detection
+                            </button>
+                        </div>
+                        
+                        <div id="ai-test-results" className="test-results" style={{
+                            marginTop: '15px',
+                            padding: '10px',
+                            backgroundColor: '#f8f9fa',
+                            border: '1px solid #dee2e6',
+                            borderRadius: '4px',
+                            fontFamily: 'monospace',
+                            fontSize: '12px',
+                            maxHeight: '200px',
+                            overflowY: 'auto',
+                            display: 'none'
+                        }}>
+                            <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Test Results:</div>
+                            <div id="test-log"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="settings-section">
                     <h2>{t('settings.notifications')}</h2>
                     <div className="notification-options">
                         <div className="form-group toggle-group">
@@ -1929,6 +2120,14 @@ const App = ({ onSignOut }) => {
       }
   });
 
+  // AI Distress Detection State
+  const [distressManager, setDistressManager] = useState(null);
+  const [isDistressMonitoring, setIsDistressMonitoring] = useState(false);
+  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [verificationData, setVerificationData] = useState(null);
+  const [microphonePermission, setMicrophonePermission] = useState('prompt');
+  const [speechFeedback, setSpeechFeedback] = useState({ text: '', confidence: 0, isFinal: false, visible: false });
+
   const { t } = useLocalization();
 
   // Load user profile on mount
@@ -1983,6 +2182,39 @@ const App = ({ onSignOut }) => {
 
     loadContacts();
   }, []);
+
+  // Load active companion session on mount
+  useEffect(() => {
+    const loadActiveCompanionSession = async () => {
+      try {
+        console.log('🔍 Checking for active companion session...');
+        const response = await companionAPI.getActiveSession();
+        
+        if (response && response.isActive) {
+          console.log('✅ Found active companion session:', response);
+          
+          setCompanionSession({
+            isActive: true,
+            sharedWith: response.sharedWithContacts?.map(c => c.name) || [],
+            endTime: new Date(response.endTime).getTime(),
+            sessionId: response.id
+          });
+          
+          showToast('🔄 Companion mode resumed - you are sharing your location');
+        } else {
+          console.log('ℹ️ No active companion session found');
+        }
+      } catch (error) {
+        console.error('Failed to load active companion session:', error);
+        // Don't show error to user as this is not critical
+      }
+    };
+
+    // Only check after user is loaded
+    if (user.email && !isLoadingUser) {
+      loadActiveCompanionSession();
+    }
+  }, [user.email, isLoadingUser]);
 
   // Poll for sessions shared with me (every 10 seconds)
   useEffect(() => {
@@ -2059,12 +2291,18 @@ const App = ({ onSignOut }) => {
 
   useEffect(() => {
     if (companionSession.isActive && companionSession.endTime) {
+        console.log('⏰ Starting companion session timer', {
+          endTime: new Date(companionSession.endTime),
+          sessionId: companionSession.sessionId
+        });
+        
         const updateTimer = () => {
             const now = Date.now();
             const remaining = Math.round((companionSession.endTime - now) / 1000);
             if (remaining > 0) {
                 setTimeLeft(remaining);
             } else {
+                console.log('⏰ Companion session expired, stopping...');
                 setTimeLeft(0);
                 stopCompanionMode();
             }
@@ -2077,6 +2315,232 @@ const App = ({ onSignOut }) => {
     }
   }, [companionSession.isActive, companionSession.endTime]);
 
+  // Auto-initialize distress detection when app loads
+  useEffect(() => {
+    const autoInitDistressDetection = async () => {
+      // Initialize if user is logged in (contacts are not required for AI detection)
+      if (user.email) {
+        // Small delay to ensure app is fully loaded
+        setTimeout(() => {
+          initializeDistressDetection();
+        }, 2000);
+      }
+    };
+    
+    autoInitDistressDetection();
+    
+    // Cleanup on unmount
+    return () => {
+      if (distressManager) {
+        console.log('🧹 Cleaning up distress detection on unmount');
+        stopDistressDetection();
+      }
+    };
+  }, [user.email]); // Removed contacts.length dependency
+
+  // AI Testing Functions for Settings
+  const setupAITestingFunctions = () => {
+    // Microphone Test Function
+    window.testMicrophone = async () => {
+      const testResults = document.getElementById('ai-test-results');
+      const testLog = document.getElementById('test-log');
+      
+      if (testResults) testResults.style.display = 'block';
+      if (testLog) testLog.innerHTML = '';
+      
+      const addTestLog = (message) => {
+        if (testLog) {
+          testLog.innerHTML += `[${new Date().toLocaleTimeString()}] ${message}<br>`;
+          testLog.scrollTop = testLog.scrollHeight;
+        }
+      };
+      
+      try {
+        addTestLog('🎤 Testing microphone access...');
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        addTestLog('✅ Microphone access granted');
+        
+        // Test audio levels
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const analyser = audioContext.createAnalyser();
+        const microphone = audioContext.createMediaStreamSource(stream);
+        microphone.connect(analyser);
+        
+        analyser.fftSize = 256;
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        
+        addTestLog('🔊 Monitoring audio levels for 5 seconds...');
+        addTestLog('💬 Please speak into your microphone');
+        
+        let maxVolume = 0;
+        const startTime = Date.now();
+        
+        const checkAudio = () => {
+          analyser.getByteFrequencyData(dataArray);
+          const volume = Math.max(...dataArray);
+          maxVolume = Math.max(maxVolume, volume);
+          
+          if (Date.now() - startTime < 5000) {
+            setTimeout(checkAudio, 100);
+          } else {
+            stream.getTracks().forEach(track => track.stop());
+            audioContext.close();
+            
+            if (maxVolume > 50) {
+              addTestLog(`✅ Microphone working! Max volume detected: ${maxVolume}`);
+            } else {
+              addTestLog(`⚠️ Low audio detected. Max volume: ${maxVolume}. Check microphone settings.`);
+            }
+          }
+        };
+        
+        checkAudio();
+        
+      } catch (error) {
+        addTestLog(`❌ Microphone test failed: ${error.message}`);
+      }
+    };
+    
+    // Speech Recognition Test Function
+    window.testSpeechRecognition = async () => {
+      const testResults = document.getElementById('ai-test-results');
+      const testLog = document.getElementById('test-log');
+      
+      if (testResults) testResults.style.display = 'block';
+      if (testLog) testLog.innerHTML = '';
+      
+      const addTestLog = (message) => {
+        if (testLog) {
+          testLog.innerHTML += `[${new Date().toLocaleTimeString()}] ${message}<br>`;
+          testLog.scrollTop = testLog.scrollHeight;
+        }
+      };
+      
+      try {
+        addTestLog('🗣️ Testing speech recognition...');
+        
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+          addTestLog('❌ Speech recognition not supported in this browser');
+          return;
+        }
+        
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        
+        addTestLog('✅ Speech recognition initialized');
+        addTestLog('🎙️ Listening for 10 seconds... Please speak!');
+        
+        recognition.onresult = (event) => {
+          const results = event.results;
+          const lastResult = results[results.length - 1];
+          const transcript = lastResult[0].transcript;
+          const confidence = lastResult[0].confidence || 0;
+          const isFinal = lastResult.isFinal;
+          
+          addTestLog(`${isFinal ? '📝' : '⏳'} ${isFinal ? 'Final' : 'Interim'}: "${transcript}" (${Math.round(confidence * 100)}%)`);
+        };
+        
+        recognition.onerror = (event) => {
+          addTestLog(`❌ Speech recognition error: ${event.error}`);
+        };
+        
+        recognition.onend = () => {
+          addTestLog('🏁 Speech recognition test completed');
+        };
+        
+        recognition.start();
+        
+        // Stop after 10 seconds
+        setTimeout(() => {
+          recognition.stop();
+        }, 10000);
+        
+      } catch (error) {
+        addTestLog(`❌ Speech recognition test failed: ${error.message}`);
+      }
+    };
+    
+    // Distress Detection Test Function
+    window.testDistressDetection = async () => {
+      const testResults = document.getElementById('ai-test-results');
+      const testLog = document.getElementById('test-log');
+      
+      if (testResults) testResults.style.display = 'block';
+      if (testLog) testLog.innerHTML = '';
+      
+      const addTestLog = (message) => {
+        if (testLog) {
+          testLog.innerHTML += `[${new Date().toLocaleTimeString()}] ${message}<br>`;
+          testLog.scrollTop = testLog.scrollHeight;
+        }
+      };
+      
+      try {
+        addTestLog('🚨 Testing distress detection...');
+        
+        // Import the classification service
+        const { DistressClassificationService } = await import('./src/distress-detection/services/DistressClassificationService.js');
+        const classifier = new DistressClassificationService();
+        
+        addTestLog('✅ Distress classifier loaded');
+        
+        // Test phrases
+        const testPhrases = [
+          'Hello how are you today',
+          'help me please',
+          'I am scared',
+          'stop it please',
+          'call the police',
+          'everything is fine',
+          'no please dont',
+          'I need assistance'
+        ];
+        
+        addTestLog('🔍 Testing phrases for distress detection...');
+        
+        for (const phrase of testPhrases) {
+          const analysis = await classifier.analyzeText(phrase);
+          const status = analysis.isDistress ? '🚨 DISTRESS' : '✅ SAFE';
+          addTestLog(`${status} "${phrase}" - ${analysis.confidence}% confidence`);
+          
+          if (analysis.detectedPhrases.length > 0) {
+            addTestLog(`   └─ Detected: [${analysis.detectedPhrases.join(', ')}]`);
+          }
+        }
+        
+        addTestLog('🏁 Distress detection test completed');
+        
+      } catch (error) {
+        addTestLog(`❌ Distress detection test failed: ${error.message}`);
+      }
+    };
+    
+    // Speech Feedback Function (for real-time display)
+    window.showSpeechFeedback = (text, confidence, isFinal) => {
+      setSpeechFeedback({
+        text,
+        confidence: Math.round(confidence * 100),
+        isFinal,
+        visible: true
+      });
+      
+      // Hide after 3 seconds if final, or 1 second if interim
+      setTimeout(() => {
+        setSpeechFeedback(prev => ({ ...prev, visible: false }));
+      }, isFinal ? 3000 : 1000);
+    };
+  };
+  
+  // Set up testing functions when component mounts
+  useEffect(() => {
+    setupAITestingFunctions();
+  }, []);
 
   const handleUserChange = (e) => {
     const { name, value } = e.target;
@@ -2178,6 +2642,16 @@ const App = ({ onSignOut }) => {
   };
   
   const handleStartCompanionMode = async (selectedContactIds, durationInMinutes) => {
+    // Show immediate feedback to user
+    showToast('Starting companion mode...');
+    
+    // Use high accuracy and shorter timeout for faster response
+    const geoOptions = {
+      enableHighAccuracy: true,
+      timeout: 10000, // 10 seconds instead of default 30+
+      maximumAge: 60000 // Accept location up to 1 minute old
+    };
+    
     navigator.geolocation.getCurrentPosition(async (position) => {
         try {
             const { latitude, longitude } = position.coords;
@@ -2208,6 +2682,9 @@ const App = ({ onSignOut }) => {
             
             const coords = { lat: latitude, lng: longitude };
             setCurrentPosition(coords);
+            
+            // Show success message
+            showToast(`Companion mode activated! Sharing location for ${durationInMinutes} minutes.`);
 
             if (watchIdRef.current !== null) {
                 navigator.geolocation.clearWatch(watchIdRef.current);
@@ -2262,8 +2739,8 @@ const App = ({ onSignOut }) => {
         }
     }, (error) => {
         console.error("Geolocation error:", error);
-        alert("Could not get your location. Please enable location services and try again.");
-    });
+        showToast("Could not get your location. Please enable location services and try again.");
+    }, geoOptions);
   };
 
   const stopCompanionMode = async () => {
@@ -2375,6 +2852,178 @@ const App = ({ onSignOut }) => {
     setToastMessage(message);
   }
 
+  // AI Distress Detection Functions
+  const initializeDistressDetection = async () => {
+    try {
+      console.log('🤖 Initializing AI Distress Detection...');
+      
+      // Check microphone permission first
+      const permissionManager = new PermissionsManager();
+      const hasPermission = await permissionManager.requestMicrophonePermission();
+      
+      if (!hasPermission) {
+        setMicrophonePermission('denied');
+        showToast('Microphone access is required for AI distress detection. Please enable it in your browser settings.');
+        return false;
+      }
+      
+      setMicrophonePermission('granted');
+      
+      // Initialize the distress detection manager
+      const manager = new DistressDetectionManager();
+      
+      // Enable the system by updating settings
+      manager.updateSettings({
+        enabled: true,
+        speechRecognition: {
+          enabled: true,
+          sensitivity: 70,
+          language: 'en-US',
+          continuousMode: true,
+        },
+        audioAnalysis: {
+          enabled: true,
+          volumeThreshold: 80,
+          spikeDetection: true,
+          frequencyAnalysis: true,
+        },
+        nlpProcessing: {
+          mode: 'local',
+          confidenceThreshold: 60, // Lower threshold for better detection
+          customPhrases: [],
+        },
+        verification: {
+          timeoutSeconds: 10,
+          showCountdown: true,
+          requireExplicitConfirmation: false,
+        },
+        privacy: {
+          storeAudioLocally: false,
+          sendToAPI: false,
+          dataRetentionDays: 7,
+        },
+      });
+      
+      // Set up distress detection callbacks
+      manager.onDistressDetected((context) => {
+        console.log('🚨 Distress detected:', context);
+        
+        setVerificationData({
+          detectionSource: context.detectionMethod,
+          confidence: Math.round(context.confidence),
+          transcript: context.transcript,
+          audioMetrics: context.audioMetrics,
+          timestamp: new Date(),
+          context: context // Store the full context for verification result handling
+        });
+        
+        setShowVerificationDialog(true);
+      });
+      
+      // Start monitoring (this also initializes the services)
+      await manager.startMonitoring();
+      setDistressManager(manager);
+      setIsDistressMonitoring(true);
+      
+      showToast('🤖 AI Distress Detection is now active and listening...');
+      console.log('✅ AI Distress Detection initialized successfully');
+      
+      // Add state change listener for debugging
+      manager.onStateChange((state) => {
+        console.log('🔄 AI Detection State Changed:', state);
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to initialize distress detection:', error);
+      showToast('Failed to initialize AI distress detection: ' + error.message);
+      return false;
+    }
+  };
+  
+  const stopDistressDetection = async () => {
+    if (distressManager) {
+      try {
+        console.log('🛑 Stopping AI Distress Detection...');
+        distressManager.destroy();
+        setDistressManager(null);
+        setIsDistressMonitoring(false);
+        setMicrophonePermission('prompt'); // Reset permission state
+        showToast('AI Distress Detection stopped');
+        console.log('✅ AI Distress Detection stopped successfully');
+      } catch (error) {
+        console.error('Error stopping distress detection:', error);
+        showToast('Error stopping AI Distress Detection: ' + error.message);
+      }
+    }
+  };
+  
+  const handleVerificationResult = async (result) => {
+    setShowVerificationDialog(false);
+    
+    const shouldTriggerSOS = result.action === 'confirm' || result.action === 'timeout';
+    
+    // Notify the distress manager about the verification result
+    if (distressManager && verificationData?.context) {
+      distressManager.handleExternalVerificationResult(
+        result,
+        shouldTriggerSOS,
+        verificationData.context
+      );
+    }
+    
+    if (shouldTriggerSOS) {
+      // User confirmed distress or didn't respond (timeout)
+      console.log('🚨 Triggering SOS due to confirmed distress');
+      
+      try {
+        // Get current location
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          const { latitude, longitude } = position.coords;
+          
+          // Trigger SOS with AI detection context
+          const distressContext = {
+            detectionMethod: verificationData.detectionSource,
+            confidence: verificationData.confidence,
+            transcript: verificationData.transcript,
+            timestamp: verificationData.timestamp,
+            audioMetrics: verificationData.audioMetrics
+          };
+          
+          const contactIds = contacts.length > 0 ? contacts.map(c => c.id) : [];
+          const response = await sosAPI.activateSOSWithDistress(
+            latitude, 
+            longitude, 
+            distressContext, 
+            contactIds
+          );
+          
+          if (response.success) {
+            setIsSosActive(true);
+            showToast('🚨 SOS activated due to AI-detected distress!');
+            
+            // Automatically start companion mode if contacts exist
+            if (contacts.length > 0) {
+              handleStartCompanionMode(contacts.map(c => c.id), 60);
+            }
+          }
+        }, (error) => {
+          console.error('Geolocation error:', error);
+          showToast('Could not get location for SOS. Please try manual SOS.');
+        });
+      } catch (error) {
+        console.error('Failed to activate SOS:', error);
+        showToast('Failed to activate SOS: ' + error.message);
+      }
+    } else {
+      // User dismissed as false alarm
+      console.log('✅ User dismissed distress detection as false alarm');
+      showToast('Distress detection dismissed. Continuing to monitor...');
+    }
+    
+    setVerificationData(null);
+  };
+
   const renderActiveTab = () => {
     switch(activeTab) {
       case 'contacts':
@@ -2437,6 +3086,10 @@ const App = ({ onSignOut }) => {
                 stopCompanionMode={stopCompanionMode}
                 onOpenCompanionModal={() => setShowCompanionModal(true)}
                 onExpandMap={handleExpandMap}
+                isDistressMonitoring={isDistressMonitoring}
+                microphonePermission={microphonePermission}
+                initializeDistressDetection={initializeDistressDetection}
+                stopDistressDetection={stopDistressDetection}
                 />;
     }
   };
@@ -2494,6 +3147,52 @@ const App = ({ onSignOut }) => {
           onClose={handleCloseExpandedMap}
         />
       )}
+      
+      {/* AI Distress Detection Verification Dialog */}
+      {showVerificationDialog && verificationData && (
+        <VerificationDialog
+          isVisible={showVerificationDialog}
+          detectionSource={verificationData.detectionSource}
+          confidence={verificationData.confidence}
+          transcript={verificationData.transcript}
+          audioMetrics={verificationData.audioMetrics}
+          onResult={handleVerificationResult}
+          timeoutSeconds={10}
+        />
+      )}
+      
+      {/* Speech Feedback Widget */}
+      {speechFeedback.visible && isDistressMonitoring && (
+        <div className="speech-feedback-widget" style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          background: speechFeedback.isFinal ? '#28a745' : '#ffc107',
+          color: speechFeedback.isFinal ? 'white' : '#212529',
+          padding: '10px 15px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          zIndex: 1000,
+          maxWidth: '300px',
+          fontSize: '14px',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '16px' }}>
+              {speechFeedback.isFinal ? '🎤' : '⏳'}
+            </span>
+            <div>
+              <div style={{ fontWeight: 'bold' }}>
+                {speechFeedback.isFinal ? 'Heard:' : 'Listening...'}
+              </div>
+              <div style={{ fontSize: '12px', opacity: 0.8 }}>
+                "{speechFeedback.text}" ({speechFeedback.confidence}%)
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <BottomNavBar activeTab={activeTab} setActiveTab={setActiveTab} />
     </>
   );

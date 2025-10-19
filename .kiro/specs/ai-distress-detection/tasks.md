@@ -307,3 +307,30 @@
     - Build automated reporting for detection accuracy
     - Create user feedback collection and analysis
     - _Requirements: All requirements_
+
+- [x] 15. Integrate AI distress detection into main Guardian Link app
+
+
+  - [x] 15.1 Add distress detection imports and initialization to main app
+
+
+    - Import DistressDetectionManager and related components into index.tsx
+    - Add state management for distress monitoring status
+    - Implement automatic initialization when app loads
+    - _Requirements: 1.1, 5.1, 7.1_
+  
+  - [x] 15.2 Integrate microphone permission requests and active listening
+
+
+    - Add automatic microphone permission request on app startup
+    - Implement continuous distress monitoring in background
+    - Create UI indicators for monitoring status and microphone access
+    - _Requirements: 6.1, 6.4, 7.4_
+  
+  - [x] 15.3 Connect distress detection to SOS system
+
+
+    - Integrate verification dialog with existing SOS workflow
+    - Add distress detection context to emergency alerts
+    - Implement automatic SOS triggering on confirmed distress
+    - _Requirements: 4.1, 5.1, 5.2_

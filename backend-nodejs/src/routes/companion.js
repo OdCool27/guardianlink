@@ -10,7 +10,7 @@ const router = express.Router();
 // Start companion session
 router.post('/start', auth, async (req, res, next) => {
   try {
-    const { contactIds, durationMinutes } = req.body;
+    const { contactIds, durationMinutes, latitude, longitude } = req.body;
     const user = await User.findByPk(req.userId);
 
     // Check for active session
@@ -47,6 +47,8 @@ router.post('/start', auth, async (req, res, next) => {
     await AlertHistory.create({
       userId: req.userId,
       eventType: 'COMPANION_STARTED',
+      latitude,
+      longitude,
       metadata: `Companion mode started for ${durationMinutes} minutes`
     });
 
@@ -162,6 +164,11 @@ router.get('/shared-with-me', auth, async (req, res, next) => {
       return res.json([]);
     }
 
+    if (!currentUser.email) {
+      console.log('User has no email, cannot find shared sessions');
+      return res.json([]);
+    }
+
     // Find all emergency contact records where I am listed as a contact
     // (matching by email or phone number)
     const contactsWhereIAmListed = await EmergencyContact.findAll({
@@ -197,20 +204,65 @@ router.get('/shared-with-me', auth, async (req, res, next) => {
           model: User,
           as: 'user',
           attributes: ['id', 'fullName', 'email']
-        },
-        {
-          model: LocationUpdate,
-          as: 'latestLocation',
-          attributes: ['latitude', 'longitude', 'accuracy', 'timestamp'],
-          order: [['timestamp', 'DESC']],
-          limit: 1
         }
       ]
     });
 
-    res.json(sessions);
+    // Get latest location for each session separately
+    const sessionsWithLocation = await Promise.all(
+      sessions.map(async (session) => {
+        const latestLocation = await LocationUpdate.findOne({
+          where: { sessionId: session.id },
+          attributes: ['latitude', 'longitude', 'accuracy', 'timestamp'],
+          order: [['timestamp', 'DESC']]
+        });
+        
+        return {
+          ...session.toJSON(),
+          latestLocation
+        };
+      })
+    );
+
+    res.json(sessionsWithLocation);
   } catch (error) {
-    next(error);
+    console.error('Error in /shared-with-me endpoint:', error);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to load shared sessions',
+      details: error.message 
+    });
+  }
+});
+
+// Get current user's active companion session
+router.get('/my-active-session', auth, async (req, res, next) => {
+  try {
+    const activeSession = await CompanionSession.findOne({
+      where: { 
+        userId: req.userId,
+        isActive: true 
+      },
+      include: [
+        {
+          model: EmergencyContact,
+          as: 'sharedWithContacts',
+          attributes: ['id', 'fullName', 'email', 'phoneNumber']
+        }
+      ]
+    });
+
+    if (!activeSession) {
+      return res.json(null);
+    }
+
+    res.json(activeSession);
+  } catch (error) {
+    console.error('Error getting active session:', error);
+    res.status(500).json({ 
+      error: 'Failed to get active session',
+      details: error.message 
+    });
   }
 });
 
